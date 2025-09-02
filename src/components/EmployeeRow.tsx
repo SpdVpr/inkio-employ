@@ -127,13 +127,20 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
           >
             {isEditing ? (
               <textarea
+                ref={(textarea) => {
+                  if (textarea) {
+                    // Nastav kurzor na konec textu
+                    const length = textarea.value.length;
+                    textarea.setSelectionRange(length, length);
+                    textarea.focus();
+                  }
+                }}
                 value={editingCell.value}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onBlur={handleInputBlur}
                 onKeyDown={handleKeyDown}
                 className="w-full h-full min-h-[40px] sm:min-h-[50px] p-1 border-none outline-none resize-none bg-transparent text-xs sm:text-sm text-gray-900 placeholder-gray-400"
                 placeholder="Zadejte úkol..."
-                autoFocus
               />
             ) : (
               <div className="min-h-[40px] sm:min-h-[50px] p-1 whitespace-pre-wrap text-xs sm:text-sm text-gray-900 relative">

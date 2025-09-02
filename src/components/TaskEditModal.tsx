@@ -110,11 +110,18 @@ export default function TaskEditModal({
             Úkoly a poznámky:
           </label>
           <textarea
+            ref={(textarea) => {
+              if (textarea) {
+                // Nastav kurzor na konec textu
+                const length = textarea.value.length;
+                textarea.setSelectionRange(length, length);
+                textarea.focus();
+              }
+            }}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="w-full h-64 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
             placeholder="Zadejte úkoly, poznámky nebo plány pro tento den..."
-            autoFocus
           />
           <p className="text-xs text-gray-500 mt-2">
             Tip: Můžete použít Enter pro nové řádky
