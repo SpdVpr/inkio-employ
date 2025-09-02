@@ -99,8 +99,8 @@ export default function EmployeeSchedule() {
   const weekData = getWeekDates(currentDate);
 
   const getHeaderCellClasses = (date: Date) => {
-    let classes = 'px-4 py-3 text-center border-r border-gray-300 min-w-[120px]';
-    
+    let classes = 'px-2 sm:px-4 py-3 text-center border-r border-gray-300 w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px]';
+
     if (isCurrentDay(date)) {
       classes += ' bg-blue-200 font-semibold text-blue-900';
     } else if (isWeekendDay(date)) {
@@ -108,7 +108,7 @@ export default function EmployeeSchedule() {
     } else {
       classes += ' bg-gray-50 text-gray-900';
     }
-    
+
     return classes;
   };
 

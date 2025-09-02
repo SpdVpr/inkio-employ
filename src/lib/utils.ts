@@ -79,7 +79,7 @@ export const getEmployeeRowClasses = (employee: Employee) => {
 
 // CSS třídy pro buňky podle dne
 export const getCellClasses = (date: Date, isEditing: boolean = false) => {
-  let classes = 'p-1 sm:p-2 border-r border-gray-200 min-h-[50px] sm:min-h-[60px] cursor-text transition-colors min-w-[80px] sm:min-w-[120px]';
+  let classes = 'p-1 sm:p-2 border-r border-gray-200 h-[60px] sm:h-[70px] cursor-text transition-colors w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px] align-top';
 
   if (isCurrentDay(date)) {
     classes += ' bg-blue-100 border-blue-300';

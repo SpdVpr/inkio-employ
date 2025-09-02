@@ -95,6 +95,47 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
     }
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    e.preventDefault();
+
+    try {
+      // Zkus získat formátovaný text
+      const clipboardData = e.clipboardData;
+      let pastedText = '';
+
+      // Priorita: HTML → plain text
+      if (clipboardData.types.includes('text/html')) {
+        const htmlContent = clipboardData.getData('text/html');
+        // Jednoduchá konverze HTML na text s zachováním základního formátování
+        pastedText = htmlContent
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<p[^>]*>/gi, '')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<div[^>]*>/gi, '')
+          .replace(/<[^>]*>/g, '') // Odstraň všechny HTML tagy
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .trim();
+      } else {
+        pastedText = clipboardData.getData('text/plain');
+      }
+
+      if (editingCell && pastedText) {
+        handleInputChange(editingCell.value + pastedText);
+      }
+    } catch (error) {
+      console.error('Error pasting content:', error);
+      // Fallback na standardní paste
+      const pastedText = e.clipboardData.getData('text/plain');
+      if (editingCell && pastedText) {
+        handleInputChange(editingCell.value + pastedText);
+      }
+    }
+  };
+
   return (
     <tr className={getEmployeeRowClasses(employee)}>
       {/* Sloupec s jménem zaměstnance */}
@@ -139,17 +180,20 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
                 onChange={(e) => handleInputChange(e.target.value)}
                 onBlur={handleInputBlur}
                 onKeyDown={handleKeyDown}
-                className="w-full h-full min-h-[40px] sm:min-h-[50px] p-1 border-none outline-none resize-none bg-transparent text-xs sm:text-sm text-gray-900 placeholder-gray-400"
+                onPaste={handlePaste}
+                className="w-full h-[56px] sm:h-[66px] p-1 border-none outline-none resize-none bg-transparent text-xs sm:text-sm text-gray-900 placeholder-gray-400 overflow-hidden"
                 placeholder="Zadejte úkol..."
               />
             ) : (
-              <div className="min-h-[40px] sm:min-h-[50px] p-1 whitespace-pre-wrap text-xs sm:text-sm text-gray-900 relative">
-                {taskContent || (
-                  <span className="text-gray-300 italic text-xs sm:text-sm">
-                    <span className="hidden sm:inline">Klikněte pro přidání úkolu</span>
-                    <span className="sm:hidden">Klikněte</span>
-                  </span>
-                )}
+              <div className="h-[56px] sm:h-[66px] p-1 whitespace-pre-wrap text-xs sm:text-sm text-gray-900 relative overflow-hidden break-words">
+                <div className="overflow-hidden h-full">
+                  {taskContent || (
+                    <span className="text-gray-300 italic text-xs sm:text-sm">
+                      <span className="hidden sm:inline">Klikněte pro přidání úkolu</span>
+                      <span className="sm:hidden">Klikněte</span>
+                    </span>
+                  )}
+                </div>
 
                 {/* Expand ikona - zobrazí se při hover */}
                 <button

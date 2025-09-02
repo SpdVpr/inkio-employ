@@ -58,6 +58,70 @@ export default function TaskEditModal({
     onClose();
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    e.preventDefault();
+
+    try {
+      const clipboardData = e.clipboardData;
+      let pastedText = '';
+
+      // Priorita: HTML → plain text
+      if (clipboardData.types.includes('text/html')) {
+        const htmlContent = clipboardData.getData('text/html');
+        // Konverze HTML na text s zachováním formátování
+        pastedText = htmlContent
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<p[^>]*>/gi, '')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<div[^>]*>/gi, '')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<li[^>]*>/gi, '• ')
+          .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '$1')
+          .replace(/<b[^>]*>(.*?)<\/b>/gi, '$1')
+          .replace(/<em[^>]*>(.*?)<\/em>/gi, '$1')
+          .replace(/<i[^>]*>(.*?)<\/i>/gi, '$1')
+          .replace(/<[^>]*>/g, '') // Odstraň všechny HTML tagy
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\n\s*\n\s*\n/g, '\n\n') // Max 2 prázdné řádky
+          .trim();
+      } else {
+        pastedText = clipboardData.getData('text/plain');
+      }
+
+      if (pastedText) {
+        // Získej pozici kurzoru
+        const textarea = e.target as HTMLTextAreaElement;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+
+        // Vlož text na pozici kurzoru
+        const newContent = content.substring(0, start) + pastedText + content.substring(end);
+        setContent(newContent);
+
+        // Nastav kurzor za vložený text
+        setTimeout(() => {
+          const newPosition = start + pastedText.length;
+          textarea.setSelectionRange(newPosition, newPosition);
+        }, 0);
+      }
+    } catch (error) {
+      console.error('Error pasting content:', error);
+      // Fallback na standardní paste
+      const pastedText = e.clipboardData.getData('text/plain');
+      if (pastedText) {
+        const textarea = e.target as HTMLTextAreaElement;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newContent = content.substring(0, start) + pastedText + content.substring(end);
+        setContent(newContent);
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -120,6 +184,7 @@ export default function TaskEditModal({
             }}
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onPaste={handlePaste}
             className="w-full h-64 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
             placeholder="Zadejte úkoly, poznámky nebo plány pro tento den..."
           />
