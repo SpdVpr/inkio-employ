@@ -10,11 +10,14 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
+export type TaskStatus = 'pending' | 'in-progress' | 'completed';
+
 export interface ScheduleTask {
   id: string;
   employeeName: string;
   taskDate: string; // YYYY-MM-DD format
   taskContent: string;
+  status: TaskStatus;
   updatedAt: Timestamp;
 }
 
@@ -23,20 +26,41 @@ const COLLECTION_NAME = 'schedule_tasks';
 
 // Save or update a task
 export const saveTask = async (
-  employeeName: string, 
-  taskDate: string, 
-  taskContent: string
+  employeeName: string,
+  taskDate: string,
+  taskContent: string,
+  status: TaskStatus = 'pending'
 ): Promise<void> => {
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
-  
+
   await setDoc(taskRef, {
     id: taskId,
     employeeName,
     taskDate,
     taskContent,
+    status,
     updatedAt: Timestamp.now()
   });
+};
+
+// Update only task status
+export const updateTaskStatus = async (
+  employeeName: string,
+  taskDate: string,
+  status: TaskStatus
+): Promise<void> => {
+  const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
+  const taskRef = doc(db, COLLECTION_NAME, taskId);
+
+  await setDoc(taskRef, {
+    id: taskId,
+    employeeName,
+    taskDate,
+    taskContent: '', // Prázdný obsah pokud úkol neexistuje
+    status,
+    updatedAt: Timestamp.now()
+  }, { merge: true }); // Merge zachová existující obsah
 };
 
 // Subscribe to tasks for a specific date range

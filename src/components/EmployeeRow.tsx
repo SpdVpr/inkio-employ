@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Employee, formatDate, getCellClasses, getEmployeeRowClasses } from '@/lib/utils';
-import { saveTask } from '@/lib/database';
-import { Expand } from 'lucide-react';
+import { Employee, formatDate, getCellClasses, getEmployeeRowClasses, getStatusIcon } from '@/lib/utils';
+import { saveTask, TaskStatus } from '@/lib/database';
+import { Expand, MoreVertical } from 'lucide-react';
 
 interface EmployeeRowProps {
   employee: Employee;
   weekDays: Date[];
   tasks: Record<string, string>; // date -> task content
+  taskStatuses: Record<string, TaskStatus>; // date -> task status
   onOpenModal: (employee: Employee, date: Date, currentContent: string) => void;
+  onStatusChange: (employee: Employee, date: Date, status: TaskStatus) => void;
 }
 
 interface EditingCell {
@@ -17,9 +19,10 @@ interface EditingCell {
   value: string;
 }
 
-export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: EmployeeRowProps) {
+export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, onOpenModal, onStatusChange }: EmployeeRowProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [localTasks, setLocalTasks] = useState<Record<string, string>>(tasks);
+  const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
 
   // Synchronizace s props když se změní tasks z Firebase
   useEffect(() => {
@@ -45,6 +48,26 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
     const currentContent = localTasks[dateStr] || '';
     onOpenModal(employee, date, currentContent);
   };
+
+  const handleContextMenu = (e: React.MouseEvent, date: Date) => {
+    e.preventDefault();
+    const dateStr = formatDate(date);
+    setShowStatusMenu(showStatusMenu === dateStr ? null : dateStr);
+  };
+
+  const handleStatusSelect = (date: Date, status: TaskStatus) => {
+    onStatusChange(employee, date, status);
+    setShowStatusMenu(null);
+  };
+
+  // Zavři status menu při kliku mimo
+  useEffect(() => {
+    const handleClickOutside = () => setShowStatusMenu(null);
+    if (showStatusMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showStatusMenu]);
 
   const handleInputChange = (value: string) => {
     if (editingCell) {
@@ -158,13 +181,16 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
         const dateStr = formatDate(date);
         const isEditing = editingCell?.date === dateStr;
         const taskContent = localTasks[dateStr] || '';
-        
+        const taskStatus = taskStatuses[dateStr] || 'pending';
+        const isMenuOpen = showStatusMenu === dateStr;
+
         return (
           <td
             key={dateStr}
-            className={`${getCellClasses(date, isEditing)} relative group`}
+            className={`${getCellClasses(date, isEditing, taskStatus)} relative group`}
             onClick={() => !isEditing && handleCellClick(date)}
             onDoubleClick={() => handleCellDoubleClick(date)}
+            onContextMenu={(e) => handleContextMenu(e, date)}
           >
             {isEditing ? (
               <textarea
@@ -186,7 +212,14 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
               />
             ) : (
               <div className="h-[56px] sm:h-[66px] p-1 whitespace-pre-wrap text-xs sm:text-sm text-gray-900 relative overflow-hidden break-words">
-                <div className="overflow-hidden h-full">
+                {/* Status ikona */}
+                {taskStatus !== 'pending' && (
+                  <div className="absolute top-1 left-1 text-sm">
+                    {getStatusIcon(taskStatus)}
+                  </div>
+                )}
+
+                <div className="overflow-hidden h-full pr-6">
                   {taskContent || (
                     <span className="text-gray-300 italic text-xs sm:text-sm">
                       <span className="hidden sm:inline">Klikněte pro přidání úkolu</span>
@@ -195,17 +228,59 @@ export default function EmployeeRow({ employee, weekDays, tasks, onOpenModal }: 
                   )}
                 </div>
 
-                {/* Expand ikona - zobrazí se při hover */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCellDoubleClick(date);
-                  }}
-                  className="absolute top-1 right-1 p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 rounded transition-all duration-200"
-                  title="Rozbalit pro delší editaci (nebo dvojklik)"
-                >
-                  <Expand size={12} className="text-gray-500" />
-                </button>
+                {/* Toolbar - zobrazí se při hover */}
+                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                  {/* Status menu button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleContextMenu(e, date);
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                    title="Změnit status (nebo pravý klik)"
+                  >
+                    <MoreVertical size={12} className="text-gray-500" />
+                  </button>
+
+                  {/* Expand button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCellDoubleClick(date);
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                    title="Rozbalit pro delší editaci (nebo dvojklik)"
+                  >
+                    <Expand size={12} className="text-gray-500" />
+                  </button>
+                </div>
+
+                {/* Status menu */}
+                {isMenuOpen && (
+                  <div className="absolute top-8 right-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[120px]">
+                    <button
+                      onClick={() => handleStatusSelect(date, 'pending')}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded-t-lg flex items-center gap-2"
+                    >
+                      <span className="text-gray-500">⚪</span>
+                      Čeká
+                    </button>
+                    <button
+                      onClick={() => handleStatusSelect(date, 'in-progress')}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <span>⏳</span>
+                      Rozpracováno
+                    </button>
+                    <button
+                      onClick={() => handleStatusSelect(date, 'completed')}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded-b-lg flex items-center gap-2"
+                    >
+                      <span>✅</span>
+                      Hotovo
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </td>

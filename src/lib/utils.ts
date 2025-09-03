@@ -1,5 +1,6 @@
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isToday, isWeekend } from 'date-fns';
 import { cs } from 'date-fns/locale';
+import { TaskStatus } from './database';
 
 export interface Employee {
   name: string;
@@ -77,11 +78,16 @@ export const getEmployeeRowClasses = (employee: Employee) => {
   }
 };
 
-// CSS třídy pro buňky podle dne
-export const getCellClasses = (date: Date, isEditing: boolean = false) => {
-  let classes = 'p-1 sm:p-2 border-r border-gray-200 h-[60px] sm:h-[70px] cursor-text transition-colors w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px] align-top';
+// CSS třídy pro buňky podle dne a statusu
+export const getCellClasses = (date: Date, isEditing: boolean = false, status?: TaskStatus) => {
+  let classes = 'p-1 sm:p-2 border-r border-gray-200 h-[60px] sm:h-[70px] cursor-text transition-colors w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px] align-top relative';
 
-  if (isCurrentDay(date)) {
+  // Status barvy mají prioritu
+  if (status === 'completed') {
+    classes += ' bg-green-100 border-green-300';
+  } else if (status === 'in-progress') {
+    classes += ' bg-orange-100 border-orange-300';
+  } else if (isCurrentDay(date)) {
     classes += ' bg-blue-100 border-blue-300';
   } else if (isWeekendDay(date)) {
     classes += ' bg-gray-100';
@@ -94,4 +100,41 @@ export const getCellClasses = (date: Date, isEditing: boolean = false) => {
   }
 
   return classes;
+};
+
+// Status ikony a barvy
+export const getStatusIcon = (status: TaskStatus) => {
+  switch (status) {
+    case 'completed':
+      return '✅';
+    case 'in-progress':
+      return '⏳';
+    case 'pending':
+    default:
+      return '';
+  }
+};
+
+export const getStatusLabel = (status: TaskStatus) => {
+  switch (status) {
+    case 'completed':
+      return 'Hotovo';
+    case 'in-progress':
+      return 'Rozpracováno';
+    case 'pending':
+    default:
+      return 'Čeká';
+  }
+};
+
+export const getStatusColor = (status: TaskStatus) => {
+  switch (status) {
+    case 'completed':
+      return 'text-green-700 bg-green-100';
+    case 'in-progress':
+      return 'text-orange-700 bg-orange-100';
+    case 'pending':
+    default:
+      return 'text-gray-700 bg-gray-100';
+  }
 };

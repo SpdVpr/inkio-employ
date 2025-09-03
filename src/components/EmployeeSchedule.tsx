@@ -16,7 +16,7 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus } from '@/lib/database';
 
 interface ModalState {
   isOpen: boolean;
@@ -28,6 +28,7 @@ interface ModalState {
 export default function EmployeeSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Record<string, Record<string, string>>>({});
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -47,15 +48,19 @@ export default function EmployeeSchedule() {
     const unsubscribe = subscribeToTasks(startDate, endDate, (scheduleTasks: ScheduleTask[]) => {
       // Převedeme pole úkolů na strukturu pro rychlé vyhledávání
       const tasksMap: Record<string, Record<string, string>> = {};
+      const statusesMap: Record<string, Record<string, TaskStatus>> = {};
 
       scheduleTasks.forEach(task => {
         if (!tasksMap[task.employeeName]) {
           tasksMap[task.employeeName] = {};
+          statusesMap[task.employeeName] = {};
         }
         tasksMap[task.employeeName][task.taskDate] = task.taskContent;
+        statusesMap[task.employeeName][task.taskDate] = task.status || 'pending';
       });
 
       setTasks(tasksMap);
+      setTaskStatuses(statusesMap);
       setLoading(false);
     });
 
@@ -93,6 +98,33 @@ export default function EmployeeSchedule() {
 
   const handleModalClose = () => {
     setModalState({ isOpen: false, employee: null, date: null, initialContent: '' });
+  };
+
+  const handleStatusChange = async (employee: Employee, date: Date, newStatus: TaskStatus) => {
+    const dateStr = formatDate(date);
+
+    // Optimistické update
+    setTaskStatuses(prev => ({
+      ...prev,
+      [employee.name]: {
+        ...prev[employee.name],
+        [dateStr]: newStatus
+      }
+    }));
+
+    try {
+      await updateTaskStatus(employee.name, dateStr, newStatus);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      // Vrať původní status při chybě
+      setTaskStatuses(prev => ({
+        ...prev,
+        [employee.name]: {
+          ...prev[employee.name],
+          [dateStr]: prev[employee.name]?.[dateStr] || 'pending'
+        }
+      }));
+    }
   };
 
   // Výpočet týdenních dat pro render
@@ -182,7 +214,9 @@ export default function EmployeeSchedule() {
                     employee={employee}
                     weekDays={weekData.days}
                     tasks={tasks[employee.name] || {}}
+                    taskStatuses={taskStatuses[employee.name] || {}}
                     onOpenModal={handleOpenModal}
+                    onStatusChange={handleStatusChange}
                   />
                 ))}
               </tbody>
@@ -211,7 +245,15 @@ export default function EmployeeSchedule() {
               <span>Víkend</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs">💡 Tip: Dvojklik pro rozšířenou editaci</span>
+              <div className="w-4 h-3 bg-green-100 rounded border border-green-300"></div>
+              <span>✅ Hotovo</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-3 bg-orange-100 rounded border border-orange-300"></div>
+              <span>⏳ Rozpracováno</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">💡 Tip: Dvojklik pro editaci, pravý klik pro status</span>
             </div>
           </div>
         </div>
