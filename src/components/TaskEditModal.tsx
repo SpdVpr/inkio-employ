@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Calendar, User } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Calendar, Undo, Redo } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName } from '@/lib/utils';
 
 interface TaskEditModalProps {
@@ -22,10 +22,15 @@ export default function TaskEditModal({
   initialContent
 }: TaskEditModalProps) {
   const [content, setContent] = useState(initialContent);
+  const [history, setHistory] = useState<string[]>([initialContent]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const lastChangeTime = useRef<number>(0);
 
   // Aktualizuj obsah když se změní initialContent
   useEffect(() => {
     setContent(initialContent);
+    setHistory([initialContent]);
+    setHistoryIndex(0);
   }, [initialContent]);
 
   // Zavři modal při ESC
@@ -56,6 +61,63 @@ export default function TaskEditModal({
   const handleCancel = () => {
     setContent(initialContent); // Vrať původní obsah
     onClose();
+  };
+
+  // Přidej do historie s debounce
+  const addToHistory = (newContent: string) => {
+    const now = Date.now();
+    // Přidej do historie pouze pokud uplynulo více než 500ms od poslední změny
+    if (now - lastChangeTime.current > 500) {
+      setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(newContent);
+        // Omez historii na 50 položek
+        if (newHistory.length > 50) {
+          newHistory.shift();
+          return newHistory;
+        }
+        return newHistory;
+      });
+      setHistoryIndex(prev => prev + 1);
+    }
+    lastChangeTime.current = now;
+  };
+
+  const handleContentChange = (newContent: string) => {
+    setContent(newContent);
+    addToHistory(newContent);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setContent(history[newIndex]);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setContent(history[newIndex]);
+    }
+  };
+
+  // Keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      } else if (e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    }
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
@@ -137,7 +199,7 @@ export default function TaskEditModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className={`w-4 h-4 rounded-full ${
                 employee.type === 'internal' ? 'bg-green-500' : 'bg-blue-500'
               }`}
@@ -149,13 +211,35 @@ export default function TaskEditModal({
               <p className="text-sm text-gray-500">{employee.position}</p>
             </div>
           </div>
-          
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X size={20} className="text-gray-500" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Undo/Redo tlačítka */}
+            <button
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Zpět (Ctrl+Z)"
+            >
+              <Undo size={16} className="text-gray-500" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Vpřed (Ctrl+Y)"
+            >
+              <Redo size={16} className="text-gray-500" />
+            </button>
+
+            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X size={20} className="text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* Date info */}
@@ -183,13 +267,14 @@ export default function TaskEditModal({
               }
             }}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => handleContentChange(e.target.value)}
             onPaste={handlePaste}
+            onKeyDown={handleKeyDown}
             className="w-full h-64 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
             placeholder="Zadejte úkoly, poznámky nebo plány pro tento den..."
           />
           <p className="text-xs text-gray-500 mt-2">
-            Tip: Můžete použít Enter pro nové řádky
+            Tip: Enter = nový řádek • Ctrl+Z = zpět • Ctrl+Y = vpřed • Ctrl+S = uložit
           </p>
         </div>
 

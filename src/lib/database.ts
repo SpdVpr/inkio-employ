@@ -1,12 +1,13 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  query, 
-  where, 
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  query,
+  where,
   orderBy,
-  Timestamp 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -24,24 +25,33 @@ export interface ScheduleTask {
 // Collection reference
 const COLLECTION_NAME = 'schedule_tasks';
 
-// Save or update a task
+// Save or update a task (zachovává existující status)
 export const saveTask = async (
   employeeName: string,
   taskDate: string,
   taskContent: string,
-  status: TaskStatus = 'pending'
+  status?: TaskStatus
 ): Promise<void> => {
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
 
-  await setDoc(taskRef, {
-    id: taskId,
-    employeeName,
-    taskDate,
-    taskContent,
-    status,
-    updatedAt: Timestamp.now()
-  });
+  try {
+    // Pokus se aktualizovat pouze obsah (zachová existující status)
+    await updateDoc(taskRef, {
+      taskContent,
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    // Pokud dokument neexistuje, vytvoř ho s výchozím statusem
+    await setDoc(taskRef, {
+      id: taskId,
+      employeeName,
+      taskDate,
+      taskContent,
+      status: status || 'pending',
+      updatedAt: Timestamp.now()
+    });
+  }
 };
 
 // Update only task status
@@ -53,14 +63,23 @@ export const updateTaskStatus = async (
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
 
-  await setDoc(taskRef, {
-    id: taskId,
-    employeeName,
-    taskDate,
-    taskContent: '', // Prázdný obsah pokud úkol neexistuje
-    status,
-    updatedAt: Timestamp.now()
-  }, { merge: true }); // Merge zachová existující obsah
+  try {
+    // Pokus se aktualizovat pouze status (zachová existující obsah)
+    await updateDoc(taskRef, {
+      status,
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    // Pokud dokument neexistuje, vytvoř ho s prázdným obsahem
+    await setDoc(taskRef, {
+      id: taskId,
+      employeeName,
+      taskDate,
+      taskContent: '',
+      status,
+      updatedAt: Timestamp.now()
+    });
+  }
 };
 
 // Subscribe to tasks for a specific date range

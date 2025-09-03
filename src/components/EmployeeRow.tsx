@@ -214,12 +214,12 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, o
               <div className="h-[56px] sm:h-[66px] p-1 whitespace-pre-wrap text-xs sm:text-sm text-gray-900 relative overflow-hidden break-words">
                 {/* Status ikona */}
                 {taskStatus !== 'pending' && (
-                  <div className="absolute top-1 left-1 text-sm">
+                  <div className="absolute bottom-1 right-1 text-sm">
                     {getStatusIcon(taskStatus)}
                   </div>
                 )}
 
-                <div className="overflow-hidden h-full pr-6">
+                <div className="overflow-hidden h-full pr-6 pb-5">
                   {taskContent || (
                     <span className="text-gray-300 italic text-xs sm:text-sm">
                       <span className="hidden sm:inline">Klikněte pro přidání úkolu</span>
@@ -257,28 +257,47 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, o
 
                 {/* Status menu */}
                 {isMenuOpen && (
-                  <div className="absolute top-8 right-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[120px]">
-                    <button
-                      onClick={() => handleStatusSelect(date, 'pending')}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded-t-lg flex items-center gap-2"
-                    >
-                      <span className="text-gray-500">⚪</span>
-                      Čeká
-                    </button>
-                    <button
-                      onClick={() => handleStatusSelect(date, 'in-progress')}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <span>⏳</span>
-                      Rozpracováno
-                    </button>
-                    <button
-                      onClick={() => handleStatusSelect(date, 'completed')}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded-b-lg flex items-center gap-2"
-                    >
-                      <span>✅</span>
-                      Hotovo
-                    </button>
+                  <div
+                    className="fixed bg-white border border-gray-300 rounded-lg shadow-2xl z-[9999] min-w-[140px]"
+                    style={{
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusSelect(date, 'pending');
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded flex items-center gap-2 text-gray-700"
+                      >
+                        <span className="text-gray-400">⚪</span>
+                        Čeká
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusSelect(date, 'in-progress');
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded flex items-center gap-2 text-gray-700"
+                      >
+                        <span>⏳</span>
+                        Rozpracováno
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusSelect(date, 'completed');
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 rounded flex items-center gap-2 text-gray-700"
+                      >
+                        <span>✅</span>
+                        Hotovo
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
