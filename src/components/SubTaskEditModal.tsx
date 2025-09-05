@@ -51,13 +51,24 @@ export default function SubTaskEditModal({
   }, [isOpen, onClose]);
 
   const handleSave = () => {
-    // Aktualizuj order podle aktuálního pořadí
-    const updatedSubTasks = subTasks.map((task, index) => ({
-      ...task,
-      order: index
-    }));
-    onSave(updatedSubTasks);
-    onClose();
+    try {
+      // Aktualizuj order podle aktuálního pořadí a sanitizuj data
+      const updatedSubTasks = subTasks
+        .filter(task => task && typeof task === 'object' && task.content && task.content.trim()) // Pouze platné úkoly s obsahem
+        .map((task, index) => ({
+          id: task.id || generateSubTaskId(),
+          content: (task.content || '').trim(),
+          status: task.status || 'pending',
+          order: index
+        }));
+
+      console.log('Saving sub-tasks:', updatedSubTasks);
+      onSave(updatedSubTasks);
+      onClose();
+    } catch (error) {
+      console.error('Error preparing sub-tasks for save:', error);
+      alert('Chyba při ukládání úkolů. Zkuste to prosím znovu.');
+    }
   };
 
   const handleCancel = () => {

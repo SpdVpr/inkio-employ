@@ -128,10 +128,19 @@ export default function EmployeeSchedule() {
       const dateStr = formatDate(subTaskModalState.date);
 
       try {
+        console.log('Saving sub-tasks for:', subTaskModalState.employee.name, dateStr, newSubTasks);
         await saveSubTasks(subTaskModalState.employee.name, dateStr, newSubTasks);
+        console.log('Sub-tasks saved successfully');
       } catch (error) {
         console.error('Error saving sub-tasks:', error);
+
+        // Zobraz uživateli chybu
+        const errorMessage = error instanceof Error ? error.message : 'Neznámá chyba';
+        alert(`Chyba při ukládání úkolů: ${errorMessage}\n\nZkuste to prosím znovu nebo kontaktujte podporu.`);
       }
+    } else {
+      console.error('Missing employee or date for saving sub-tasks');
+      alert('Chyba: Chybí informace o zaměstnanci nebo datu.');
     }
   };
 

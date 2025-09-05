@@ -21,8 +21,7 @@ export const getFirebaseProjectId = () => {
 
 // Development collection suffix to avoid conflicts
 export const getCollectionName = (baseName: string) => {
-  if (isDevelopment()) {
-    return `${baseName}_dev`;
-  }
-  return baseName;
+  const collectionName = isDevelopment() ? `${baseName}_dev` : baseName;
+  console.log(`Environment: ${getEnvironmentName()}, Collection: ${collectionName}`);
+  return collectionName;
 };

@@ -140,6 +140,16 @@ export const updateTaskStatus = async (
   }
 };
 
+// Sanitizace sub-úkolu - odstraní undefined hodnoty
+const sanitizeSubTask = (subTask: SubTask): SubTask => {
+  return {
+    id: subTask.id || generateSubTaskId(),
+    content: subTask.content || '',
+    status: subTask.status || 'pending',
+    order: typeof subTask.order === 'number' ? subTask.order : 0
+  };
+};
+
 // Uložení sub-úkolů
 export const saveSubTasks = async (
   employeeName: string,
@@ -149,33 +159,53 @@ export const saveSubTasks = async (
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
 
-  // Seřaď sub-úkoly podle order
-  const sortedSubTasks = [...subTasks].sort((a, b) => a.order - b.order);
+  // Sanitizuj a seřaď sub-úkoly podle order
+  const sanitizedSubTasks = subTasks
+    .filter(st => st && typeof st === 'object') // Odfiltruj neplatné objekty
+    .map(sanitizeSubTask)
+    .sort((a, b) => a.order - b.order);
 
   // Vypočítej celkový status
-  const overallStatus = calculateOverallStatus(sortedSubTasks);
+  const overallStatus = calculateOverallStatus(sanitizedSubTasks);
 
   // Vytvoř taskContent pro zpětnou kompatibilitu
-  const taskContent = sortedSubTasks.map(st => st.content).join('\n');
+  const taskContent = sanitizedSubTasks
+    .map(st => st.content)
+    .filter(content => content && content.trim()) // Odfiltruj prázdné obsahy
+    .join('\n');
+
+  // Připrav data pro uložení - bez undefined hodnot
+  const dataToSave = {
+    id: taskId,
+    employeeName: employeeName || '',
+    taskDate: taskDate || '',
+    taskContent: taskContent || '',
+    status: overallStatus || 'pending',
+    subTasks: sanitizedSubTasks,
+    updatedAt: Timestamp.now()
+  };
+
+  // Debug logging pro produkci
+  console.log('Saving to collection:', COLLECTION_NAME);
+  console.log('Task ID:', taskId);
+  console.log('Data to save:', JSON.stringify(dataToSave, null, 2));
 
   try {
+    // Zkus nejdříve update
+    console.log('Attempting updateDoc...');
     await updateDoc(taskRef, {
-      subTasks: sortedSubTasks,
-      status: overallStatus,
-      taskContent, // Zachováno pro zpětnou kompatibilitu
-      updatedAt: Timestamp.now()
+      subTasks: dataToSave.subTasks,
+      status: dataToSave.status,
+      taskContent: dataToSave.taskContent,
+      updatedAt: dataToSave.updatedAt
     });
+    console.log('UpdateDoc successful');
   } catch (error) {
+    console.log('Update failed, creating new document:', error);
+    console.log('Attempting setDoc...');
     // Pokud dokument neexistuje, vytvoř ho
-    await setDoc(taskRef, {
-      id: taskId,
-      employeeName,
-      taskDate,
-      taskContent,
-      status: overallStatus,
-      subTasks: sortedSubTasks,
-      updatedAt: Timestamp.now()
-    });
+    await setDoc(taskRef, dataToSave);
+    console.log('SetDoc successful');
   }
 };
 
