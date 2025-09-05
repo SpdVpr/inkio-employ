@@ -4,9 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:prod": "cp .env.production .env.local && next dev --turbopack",
     "build": "next build --turbopack",
+    "build:dev": "cp .env.local .env.local.bak && cp .env.production .env.local && next build --turbopack && mv .env.local.bak .env.local",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "env:dev": "echo 'Switching to development environment' && cp .env.example .env.local && echo 'Please update .env.local with your dev Firebase config'",
+    "env:prod": "echo 'Switching to production environment' && cp .env.production .env.local",
+    "env:status": "echo 'Current environment:' && grep NEXT_PUBLIC_FIREBASE_PROJECT_ID .env.local"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

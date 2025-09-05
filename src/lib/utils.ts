@@ -1,6 +1,6 @@
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isToday, isWeekend } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { TaskStatus } from './database';
+import { TaskStatus, SubTask } from './database';
 
 export interface Employee {
   name: string;
@@ -79,20 +79,36 @@ export const getEmployeeRowClasses = (employee: Employee) => {
 };
 
 // CSS třídy pro buňky podle dne a statusu
-export const getCellClasses = (date: Date, isEditing: boolean = false, status?: TaskStatus) => {
-  let classes = 'p-1 sm:p-2 border-r border-gray-200 h-[60px] sm:h-[70px] cursor-text transition-colors w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px] align-top relative';
+export const getCellClasses = (
+  date: Date,
+  isEditing: boolean = false,
+  status?: TaskStatus,
+  progress?: number
+) => {
+  let classes = 'p-3 border-r border-gray-200 h-[120px] cursor-pointer transition-colors w-[240px] min-w-[240px] max-w-[240px] align-top relative';
 
-  // Status barvy mají prioritu
-  if (status === 'completed') {
-    classes += ' bg-green-100 border-green-300';
-  } else if (status === 'in-progress') {
-    classes += ' bg-orange-100 border-orange-300';
-  } else if (isCurrentDay(date)) {
-    classes += ' bg-blue-100 border-blue-300';
-  } else if (isWeekendDay(date)) {
-    classes += ' bg-gray-100';
+  // Progress-based styling má prioritu
+  if (progress !== undefined && progress > 0) {
+    if (progress === 100) {
+      classes += ' bg-green-100 border-green-300';
+    } else if (progress > 0) {
+      classes += ' bg-gradient-to-r from-green-50 via-orange-50 to-gray-50 border-orange-300';
+    } else {
+      classes += ' bg-white hover:bg-gray-50';
+    }
   } else {
-    classes += ' bg-white hover:bg-gray-50';
+    // Fallback na původní logiku
+    if (status === 'completed') {
+      classes += ' bg-green-100 border-green-300';
+    } else if (status === 'in-progress') {
+      classes += ' bg-orange-100 border-orange-300';
+    } else if (isCurrentDay(date)) {
+      classes += ' bg-blue-100 border-blue-300';
+    } else if (isWeekendDay(date)) {
+      classes += ' bg-gray-100';
+    } else {
+      classes += ' bg-white hover:bg-gray-50';
+    }
   }
 
   if (isEditing) {
@@ -137,4 +153,46 @@ export const getStatusColor = (status: TaskStatus) => {
     default:
       return 'text-gray-700 bg-gray-100';
   }
+};
+
+// Utility funkce pro sub-úkoly
+export const getNextStatus = (currentStatus: TaskStatus): TaskStatus => {
+  switch (currentStatus) {
+    case 'pending':
+      return 'in-progress';
+    case 'in-progress':
+      return 'completed';
+    case 'completed':
+      return 'pending';
+    default:
+      return 'pending';
+  }
+};
+
+export const getSubTaskIcon = (status: TaskStatus) => {
+  switch (status) {
+    case 'completed':
+      return '✅';
+    case 'in-progress':
+      return '⏳';
+    case 'pending':
+    default:
+      return '⚪';
+  }
+};
+
+export const formatProgress = (progress: number): string => {
+  return `${progress}%`;
+};
+
+export const getProgressBarClasses = (progress: number): string => {
+  if (progress === 0) return 'bg-gray-200';
+  if (progress === 100) return 'bg-green-500';
+  return 'bg-gradient-to-r from-green-500 to-orange-500';
+};
+
+// Zkrácení textu pro zobrazení v buňce
+export const truncateText = (text: string, maxLength: number = 25): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
 };

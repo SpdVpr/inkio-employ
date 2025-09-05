@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import WeekNavigation from './WeekNavigation';
 import EmployeeRow from './EmployeeRow';
 import TaskEditModal from './TaskEditModal';
+import SubTaskEditModal from './SubTaskEditModal';
 import {
   employees,
   getWeekDates,
@@ -16,7 +17,8 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks } from '@/lib/database';
+import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 
 interface ModalState {
   isOpen: boolean;
@@ -25,16 +27,30 @@ interface ModalState {
   initialContent: string;
 }
 
+interface SubTaskModalState {
+  isOpen: boolean;
+  employee: Employee | null;
+  date: Date | null;
+  initialSubTasks: SubTask[];
+}
+
 export default function EmployeeSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Record<string, Record<string, string>>>({});
   const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
+  const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     employee: null,
     date: null,
     initialContent: ''
+  });
+  const [subTaskModalState, setSubTaskModalState] = useState<SubTaskModalState>({
+    isOpen: false,
+    employee: null,
+    date: null,
+    initialSubTasks: []
   });
 
   // Přihlášení k odběru úkolů pro aktuální týden
@@ -49,18 +65,22 @@ export default function EmployeeSchedule() {
       // Převedeme pole úkolů na strukturu pro rychlé vyhledávání
       const tasksMap: Record<string, Record<string, string>> = {};
       const statusesMap: Record<string, Record<string, TaskStatus>> = {};
+      const subTasksMap: Record<string, Record<string, SubTask[]>> = {};
 
       scheduleTasks.forEach(task => {
         if (!tasksMap[task.employeeName]) {
           tasksMap[task.employeeName] = {};
           statusesMap[task.employeeName] = {};
+          subTasksMap[task.employeeName] = {};
         }
         tasksMap[task.employeeName][task.taskDate] = task.taskContent;
         statusesMap[task.employeeName][task.taskDate] = task.status || 'pending';
+        subTasksMap[task.employeeName][task.taskDate] = task.subTasks || [];
       });
 
       setTasks(tasksMap);
       setTaskStatuses(statusesMap);
+      setSubTasks(subTasksMap);
       setLoading(false);
     });
 
@@ -76,11 +96,14 @@ export default function EmployeeSchedule() {
   };
 
   const handleOpenModal = (employee: Employee, date: Date, currentContent: string) => {
-    setModalState({
+    const dateStr = formatDate(date);
+    const employeeSubTasks = subTasks[employee.name]?.[dateStr] || [];
+
+    setSubTaskModalState({
       isOpen: true,
       employee,
       date,
-      initialContent: currentContent
+      initialSubTasks: employeeSubTasks
     });
   };
 
@@ -98,6 +121,27 @@ export default function EmployeeSchedule() {
 
   const handleModalClose = () => {
     setModalState({ isOpen: false, employee: null, date: null, initialContent: '' });
+  };
+
+  const handleSubTaskModalSave = async (newSubTasks: SubTask[]) => {
+    if (subTaskModalState.employee && subTaskModalState.date) {
+      const dateStr = formatDate(subTaskModalState.date);
+
+      try {
+        await saveSubTasks(subTaskModalState.employee.name, dateStr, newSubTasks);
+      } catch (error) {
+        console.error('Error saving sub-tasks:', error);
+      }
+    }
+  };
+
+  const handleSubTaskModalClose = () => {
+    setSubTaskModalState({
+      isOpen: false,
+      employee: null,
+      date: null,
+      initialSubTasks: []
+    });
   };
 
   const handleStatusChange = async (employee: Employee, date: Date, newStatus: TaskStatus) => {
@@ -127,11 +171,13 @@ export default function EmployeeSchedule() {
     }
   };
 
+  // Funkce pro přechod na další zaměstnance odstraněna - už není potřeba
+
   // Výpočet týdenních dat pro render
   const weekData = getWeekDates(currentDate);
 
   const getHeaderCellClasses = (date: Date) => {
-    let classes = 'px-2 sm:px-4 py-3 text-center border-r border-gray-300 w-[120px] sm:w-[150px] max-w-[120px] sm:max-w-[150px]';
+    let classes = 'px-4 py-3 text-center border-r border-gray-300 w-[240px] min-w-[240px] max-w-[240px]';
 
     if (isCurrentDay(date)) {
       classes += ' bg-blue-200 font-semibold text-blue-900';
@@ -147,7 +193,7 @@ export default function EmployeeSchedule() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-[1920px] mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -161,12 +207,21 @@ export default function EmployeeSchedule() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1920px] mx-auto">
         {/* Hlavička */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Rozvrh zaměstnanců Inkio
-          </h1>
+          <div className="flex items-center gap-4 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Rozvrh zaměstnanců Inkio
+            </h1>
+            {isDevelopment() && (
+              <div className="px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full">
+                <span className="text-xs font-medium text-yellow-800">
+                  🚧 {getEnvironmentName()} ({getFirebaseProjectId()})
+                </span>
+              </div>
+            )}
+          </div>
           <p className="text-gray-600">
             Týdenní plánování úkolů pro interní a externí zaměstnance
           </p>
@@ -182,22 +237,20 @@ export default function EmployeeSchedule() {
         {/* Hlavní tabulka */}
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[1880px]">
               {/* Hlavička tabulky */}
               <thead>
                 <tr className="border-b border-gray-300">
-                  <th className="sticky left-0 bg-gray-100 px-2 sm:px-4 py-3 text-left font-semibold text-gray-900 border-r border-gray-300 min-w-[160px] sm:min-w-[200px] z-10">
-                    <span className="hidden sm:inline">Zaměstnanec</span>
-                    <span className="sm:hidden">Jméno</span>
+                  <th className="sticky left-0 bg-gray-100 px-4 py-3 text-left font-semibold text-gray-900 border-r border-gray-300 min-w-[200px] w-[200px] z-10 h-[60px] align-top">
+                    Zaměstnanec
                   </th>
                   {weekData.days.map((date) => (
                     <th key={formatDate(date)} className={getHeaderCellClasses(date)}>
                       <div className="space-y-1">
-                        <div className="font-semibold text-xs sm:text-sm">
-                          <span className="hidden sm:inline">{formatDayName(date)}</span>
-                          <span className="sm:hidden">{formatDayName(date).substring(0, 2)}</span>
+                        <div className="font-semibold text-sm">
+                          {formatDayName(date)}
                         </div>
-                        <div className="text-xs sm:text-sm font-normal">
+                        <div className="text-sm font-normal">
                           {formatDateDisplay(date)}
                         </div>
                       </div>
@@ -215,6 +268,7 @@ export default function EmployeeSchedule() {
                     weekDays={weekData.days}
                     tasks={tasks[employee.name] || {}}
                     taskStatuses={taskStatuses[employee.name] || {}}
+                    subTasks={subTasks[employee.name] || {}}
                     onOpenModal={handleOpenModal}
                     onStatusChange={handleStatusChange}
                   />
@@ -253,7 +307,7 @@ export default function EmployeeSchedule() {
               <span>⏳ Rozpracováno</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs">💡 Tip: Dvojklik pro editaci, pravý klik pro status</span>
+              <span className="text-xs">💡 Tip: Klik na buňku pro editaci úkolů, pravý klik pro změnu statusu, klik na ⚪⏳✅ pro rychlou změnu</span>
             </div>
           </div>
         </div>
@@ -266,6 +320,16 @@ export default function EmployeeSchedule() {
           employee={modalState.employee || employees[0]}
           date={modalState.date || new Date()}
           initialContent={modalState.initialContent}
+        />
+
+        {/* Modal pro editaci sub-úkolů */}
+        <SubTaskEditModal
+          isOpen={subTaskModalState.isOpen}
+          onClose={handleSubTaskModalClose}
+          onSave={handleSubTaskModalSave}
+          employee={subTaskModalState.employee || employees[0]}
+          date={subTaskModalState.date || new Date()}
+          initialSubTasks={subTaskModalState.initialSubTasks}
         />
       </div>
     </div>

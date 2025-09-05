@@ -7,23 +7,81 @@ import {
   query,
   where,
   orderBy,
-  Timestamp
+  Timestamp,
+  getDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getCollectionName } from './environment';
 
 export type TaskStatus = 'pending' | 'in-progress' | 'completed';
+
+export interface SubTask {
+  id: string;
+  content: string;
+  status: TaskStatus;
+  order: number;
+}
 
 export interface ScheduleTask {
   id: string;
   employeeName: string;
   taskDate: string; // YYYY-MM-DD format
-  taskContent: string;
+  taskContent: string; // Zachováno pro zpětnou kompatibilitu
   status: TaskStatus;
+  subTasks?: SubTask[]; // Nové pole pro sub-úkoly
   updatedAt: Timestamp;
 }
 
-// Collection reference
-const COLLECTION_NAME = 'schedule_tasks';
+// Collection reference - automaticky přidá _dev suffix v development
+const COLLECTION_NAME = getCollectionName('schedule_tasks');
+
+// Utility funkce pro sub-úkoly
+export const generateSubTaskId = (): string => {
+  return `subtask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+export const calculateOverallStatus = (subTasks: SubTask[]): TaskStatus => {
+  if (!subTasks || subTasks.length === 0) return 'pending';
+
+  const completed = subTasks.filter(t => t.status === 'completed').length;
+  const inProgress = subTasks.filter(t => t.status === 'in-progress').length;
+
+  if (completed === subTasks.length) return 'completed';
+  if (completed > 0 || inProgress > 0) return 'in-progress';
+  return 'pending';
+};
+
+export const calculateProgress = (subTasks: SubTask[]): number => {
+  if (!subTasks || subTasks.length === 0) return 0;
+  const completed = subTasks.filter(t => t.status === 'completed').length;
+  return Math.round((completed / subTasks.length) * 100);
+};
+
+// Migrace existujících dat na sub-úkoly
+export const migrateTaskToSubTasks = (task: ScheduleTask): ScheduleTask => {
+  // Pokud už má sub-úkoly, vrať beze změny
+  if (task.subTasks && task.subTasks.length > 0) {
+    return task;
+  }
+
+  // Pokud má taskContent ale nemá sub-úkoly, vytvoř sub-úkol
+  if (task.taskContent && task.taskContent.trim()) {
+    const subTask: SubTask = {
+      id: generateSubTaskId(),
+      content: task.taskContent,
+      status: task.status,
+      order: 0
+    };
+
+    return {
+      ...task,
+      subTasks: [subTask],
+      status: calculateOverallStatus([subTask])
+    };
+  }
+
+  return task;
+};
 
 // Save or update a task (zachovává existující status)
 export const saveTask = async (
@@ -82,6 +140,79 @@ export const updateTaskStatus = async (
   }
 };
 
+// Uložení sub-úkolů
+export const saveSubTasks = async (
+  employeeName: string,
+  taskDate: string,
+  subTasks: SubTask[]
+): Promise<void> => {
+  const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
+  const taskRef = doc(db, COLLECTION_NAME, taskId);
+
+  // Seřaď sub-úkoly podle order
+  const sortedSubTasks = [...subTasks].sort((a, b) => a.order - b.order);
+
+  // Vypočítej celkový status
+  const overallStatus = calculateOverallStatus(sortedSubTasks);
+
+  // Vytvoř taskContent pro zpětnou kompatibilitu
+  const taskContent = sortedSubTasks.map(st => st.content).join('\n');
+
+  try {
+    await updateDoc(taskRef, {
+      subTasks: sortedSubTasks,
+      status: overallStatus,
+      taskContent, // Zachováno pro zpětnou kompatibilitu
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    // Pokud dokument neexistuje, vytvoř ho
+    await setDoc(taskRef, {
+      id: taskId,
+      employeeName,
+      taskDate,
+      taskContent,
+      status: overallStatus,
+      subTasks: sortedSubTasks,
+      updatedAt: Timestamp.now()
+    });
+  }
+};
+
+// Aktualizace statusu konkrétního sub-úkolu
+export const updateSubTaskStatus = async (
+  employeeName: string,
+  taskDate: string,
+  subTaskId: string,
+  newStatus: TaskStatus
+): Promise<void> => {
+  const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
+  const taskRef = doc(db, COLLECTION_NAME, taskId);
+
+  try {
+    // Nejdříve získej aktuální data
+    const docSnap = await getDoc(taskRef);
+
+    if (docSnap.exists()) {
+      const currentTask = docSnap.data() as ScheduleTask;
+      const migratedTask = migrateTaskToSubTasks(currentTask);
+
+      if (migratedTask.subTasks) {
+        // Aktualizuj status konkrétního sub-úkolu
+        const updatedSubTasks = migratedTask.subTasks.map(st =>
+          st.id === subTaskId ? { ...st, status: newStatus } : st
+        );
+
+        // Uložit aktualizované sub-úkoly
+        await saveSubTasks(employeeName, taskDate, updatedSubTasks);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating sub-task status:', error);
+    throw error;
+  }
+};
+
 // Subscribe to tasks for a specific date range
 export const subscribeToTasks = (
   startDate: string,
@@ -98,7 +229,10 @@ export const subscribeToTasks = (
   return onSnapshot(q, (snapshot) => {
     const tasks: ScheduleTask[] = [];
     snapshot.forEach((doc) => {
-      tasks.push(doc.data() as ScheduleTask);
+      const rawTask = doc.data() as ScheduleTask;
+      // Automatická migrace na sub-úkoly
+      const migratedTask = migrateTaskToSubTasks(rawTask);
+      tasks.push(migratedTask);
     });
 
     // Řazení na klientovi místo v databázi
