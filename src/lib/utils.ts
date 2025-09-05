@@ -185,11 +185,8 @@ export const formatProgress = (progress: number): string => {
   return `${progress}%`;
 };
 
-export const getProgressBarClasses = (progress: number): string => {
-  if (progress === 0) return 'bg-gray-200';
-  if (progress === 100) return 'bg-green-500';
-  return 'bg-gradient-to-r from-green-500 to-orange-500';
-};
+// Funkce getProgressBarClasses byla přesunuta do ProgressBar komponenty
+// pro lepší kontrolu nad barvami pomocí inline stylů
 
 // Zkrácení textu pro zobrazení v buňce
 export const truncateText = (text: string, maxLength: number = 25): string => {
