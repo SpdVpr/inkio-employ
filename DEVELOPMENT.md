@@ -76,3 +76,26 @@ Pro testování můžeš zkopírovat data z produkce:
 1. Export z produkční Firestore
 2. Import do development Firestore
 3. Nebo vytvoř testovací data ručně
+
+## 🚀 Produkční nasazení
+
+**DŮLEŽITÉ:** V produkci se používá jiná Firebase databáze!
+
+### Environment soubory:
+- `.env.local` - Development (gitignored)
+- `.env.production` - Production konfigurace (gitignored)
+- `.env.example` - Template
+
+### Produkční deployment:
+1. Ujisti se, že máš správnou produkční Firebase konfiguraci
+2. Environment proměnné se automaticky načtou podle prostředí
+3. V produkci se používá `schedule_tasks` collection (bez _dev suffixu)
+
+### Vercel deployment:
+```bash
+# Nastav environment variables ve Vercel dashboard
+NEXT_PUBLIC_FIREBASE_API_KEY=produkční_hodnota
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=inkio-employ.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=inkio-employ
+# ... další produkční hodnoty
+```
