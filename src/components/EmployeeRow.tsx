@@ -13,11 +13,13 @@ interface EmployeeRowProps {
   tasks: Record<string, string>; // date -> task content
   taskStatuses: Record<string, TaskStatus>; // date -> task status
   subTasks: Record<string, SubTask[]>; // date -> sub tasks
+  absences: Record<string, boolean>; // date -> is absent
   onOpenModal: (employee: Employee, date: Date, currentContent: string) => void;
   onStatusChange: (employee: Employee, date: Date, status: TaskStatus) => void;
+  onAbsenceToggle: (employee: Employee, date: Date) => void;
 }
 
-export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, subTasks, onOpenModal, onStatusChange }: EmployeeRowProps) {
+export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, subTasks, absences, onOpenModal, onStatusChange, onAbsenceToggle }: EmployeeRowProps) {
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
 
   const handleCellClick = (date: Date) => {
@@ -84,12 +86,13 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
         const taskStatus = taskStatuses[dateStr] || 'pending';
         const daySubTasks = subTasks[dateStr] || [];
         const progress = calculateProgress(daySubTasks);
+        const isAbsent = absences[dateStr] || false;
         const isMenuOpen = showStatusMenu === dateStr;
 
         return (
           <td
             key={dateStr}
-            className={`${getCellClasses(date, false, taskStatus, progress)} relative group`}
+            className={`${getCellClasses(date, false, taskStatus, progress, isAbsent)} relative group`}
             data-employee={employee.name}
             data-date={dateStr}
             onClick={() => handleCellClick(date)}
@@ -97,6 +100,16 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
           >
             {/* Obsah buňky - pouze náhled */}
             <div className="h-[116px] p-3 text-sm text-gray-900 relative overflow-hidden flex flex-col">
+              {/* Indikátor nepřítomnosti */}
+              {isAbsent && (
+                <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-90">
+                  <div className="text-center">
+                    <div className="text-3xl mb-1">🚫</div>
+                    <div className="text-sm font-semibold text-red-700">Nepřítomen</div>
+                  </div>
+                </div>
+              )}
+
               {/* Sub-úkoly náhled */}
               <div className="flex-1 overflow-hidden pr-6 pb-6">
                 <SubTaskList
@@ -144,9 +157,9 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
               </div>
             </div>
 
-            {/* Context menu pro status */}
+            {/* Context menu pro status a absenci */}
             {isMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px]">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

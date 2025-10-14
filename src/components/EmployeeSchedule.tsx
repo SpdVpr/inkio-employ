@@ -17,7 +17,7 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 
 interface ModalState {
@@ -39,6 +39,7 @@ export default function EmployeeSchedule() {
   const [tasks, setTasks] = useState<Record<string, Record<string, string>>>({});
   const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
   const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
+  const [absences, setAbsences] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -66,21 +67,25 @@ export default function EmployeeSchedule() {
       const tasksMap: Record<string, Record<string, string>> = {};
       const statusesMap: Record<string, Record<string, TaskStatus>> = {};
       const subTasksMap: Record<string, Record<string, SubTask[]>> = {};
+      const absencesMap: Record<string, Record<string, boolean>> = {};
 
       scheduleTasks.forEach(task => {
         if (!tasksMap[task.employeeName]) {
           tasksMap[task.employeeName] = {};
           statusesMap[task.employeeName] = {};
           subTasksMap[task.employeeName] = {};
+          absencesMap[task.employeeName] = {};
         }
         tasksMap[task.employeeName][task.taskDate] = task.taskContent;
         statusesMap[task.employeeName][task.taskDate] = task.status || 'pending';
         subTasksMap[task.employeeName][task.taskDate] = task.subTasks || [];
+        absencesMap[task.employeeName][task.taskDate] = task.isAbsent || false;
       });
 
       setTasks(tasksMap);
       setTaskStatuses(statusesMap);
       setSubTasks(subTasksMap);
+      setAbsences(absencesMap);
       setLoading(false);
     });
 
@@ -175,6 +180,35 @@ export default function EmployeeSchedule() {
         [employee.name]: {
           ...prev[employee.name],
           [dateStr]: prev[employee.name]?.[dateStr] || 'pending'
+        }
+      }));
+    }
+  };
+
+  const handleAbsenceToggle = async (employee: Employee, date: Date) => {
+    const dateStr = formatDate(date);
+    const currentAbsence = absences[employee.name]?.[dateStr] || false;
+    const newAbsence = !currentAbsence;
+
+    // Optimistické update
+    setAbsences(prev => ({
+      ...prev,
+      [employee.name]: {
+        ...prev[employee.name],
+        [dateStr]: newAbsence
+      }
+    }));
+
+    try {
+      await toggleAbsent(employee.name, dateStr, newAbsence);
+    } catch (error) {
+      console.error('Error toggling absence:', error);
+      // Vrať původní stav při chybě
+      setAbsences(prev => ({
+        ...prev,
+        [employee.name]: {
+          ...prev[employee.name],
+          [dateStr]: currentAbsence
         }
       }));
     }
@@ -278,8 +312,10 @@ export default function EmployeeSchedule() {
                     tasks={tasks[employee.name] || {}}
                     taskStatuses={taskStatuses[employee.name] || {}}
                     subTasks={subTasks[employee.name] || {}}
+                    absences={absences[employee.name] || {}}
                     onOpenModal={handleOpenModal}
                     onStatusChange={handleStatusChange}
+                    onAbsenceToggle={handleAbsenceToggle}
                   />
                 ))}
               </tbody>
@@ -316,7 +352,11 @@ export default function EmployeeSchedule() {
               <span>⏳ Rozpracováno</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs">💡 Tip: Klik na buňku pro editaci úkolů, pravý klik pro změnu statusu, klik na ⚪⏳✅ pro rychlou změnu</span>
+              <div className="w-4 h-3 bg-red-100 rounded border border-red-300"></div>
+              <span>🚫 Nepřítomen</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">💡 Tip: Klik na buňku pro editaci úkolů a označení nepřítomnosti, pravý klik pro změnu statusu</span>
             </div>
           </div>
         </div>
@@ -329,6 +369,14 @@ export default function EmployeeSchedule() {
           employee={modalState.employee || employees[0]}
           date={modalState.date || new Date()}
           initialContent={modalState.initialContent}
+          isAbsent={modalState.employee && modalState.date 
+            ? absences[modalState.employee.name]?.[formatDate(modalState.date)] || false 
+            : false}
+          onAbsenceToggle={() => {
+            if (modalState.employee && modalState.date) {
+              handleAbsenceToggle(modalState.employee, modalState.date);
+            }
+          }}
         />
 
         {/* Modal pro editaci sub-úkolů */}
@@ -339,6 +387,14 @@ export default function EmployeeSchedule() {
           employee={subTaskModalState.employee || employees[0]}
           date={subTaskModalState.date || new Date()}
           initialSubTasks={subTaskModalState.initialSubTasks}
+          isAbsent={subTaskModalState.employee && subTaskModalState.date 
+            ? absences[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] || false 
+            : false}
+          onAbsenceToggle={() => {
+            if (subTaskModalState.employee && subTaskModalState.date) {
+              handleAbsenceToggle(subTaskModalState.employee, subTaskModalState.date);
+            }
+          }}
         />
       </div>
     </div>

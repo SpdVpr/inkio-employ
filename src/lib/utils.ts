@@ -15,15 +15,14 @@ export const employees: Employee[] = [
   { name: 'Radek', position: 'Copy', type: 'internal' },
   { name: 'Věrka', position: 'Copy', type: 'internal' },
   { name: 'Tonda', position: 'Grafika / DTP', type: 'internal' },
-  { name: 'Lukáš', position: '3D / Motion', type: 'internal' },
+  { name: 'Bětka', position: '', type: 'internal' },
+  { name: 'Yume', position: 'Grafika / Foto', type: 'internal' },
 
   // Externí zaměstnanci
   { name: 'Vlaďka', position: 'Copy', type: 'external' },
   { name: 'Roman', position: 'DTP / Motion', type: 'external' },
   { name: 'Honza Dočkal', position: 'Grafika / DTP', type: 'external' },
-  { name: 'Terka', position: 'Foto / Retuše', type: 'external' },
-  { name: 'Michal', position: 'Video / 3D / Motion', type: 'external' },
-  { name: 'Yume', position: 'Grafika / Foto', type: 'external' },
+  { name: 'Lukáš', position: '3D / Motion', type: 'external' },
 ];
 
 // Získání týdne pro daný datum
@@ -83,12 +82,17 @@ export const getCellClasses = (
   date: Date,
   isEditing: boolean = false,
   status?: TaskStatus,
-  progress?: number
+  progress?: number,
+  isAbsent?: boolean
 ) => {
   let classes = 'p-3 border-r border-gray-200 h-[120px] cursor-pointer transition-colors w-[240px] min-w-[240px] max-w-[240px] align-top relative';
 
+  // Absence má nejvyšší prioritu - červené pozadí
+  if (isAbsent) {
+    classes += ' bg-red-100 border-red-300 hover:bg-red-200';
+  }
   // Progress-based styling má prioritu
-  if (progress !== undefined && progress > 0) {
+  else if (progress !== undefined && progress > 0) {
     if (progress === 100) {
       classes += ' bg-green-100 border-green-300';
     } else if (progress > 0) {

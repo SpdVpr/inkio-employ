@@ -29,6 +29,7 @@ export interface ScheduleTask {
   taskContent: string; // Zachováno pro zpětnou kompatibilitu
   status: TaskStatus;
   subTasks?: SubTask[]; // Nové pole pro sub-úkoly
+  isAbsent?: boolean; // Označení, že zaměstnanec není v práci
   updatedAt: Timestamp;
 }
 
@@ -240,6 +241,35 @@ export const updateSubTaskStatus = async (
   } catch (error) {
     console.error('Error updating sub-task status:', error);
     throw error;
+  }
+};
+
+// Toggle absence status for a specific employee and date
+export const toggleAbsent = async (
+  employeeName: string,
+  taskDate: string,
+  isAbsent: boolean
+): Promise<void> => {
+  const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
+  const taskRef = doc(db, COLLECTION_NAME, taskId);
+
+  try {
+    // Pokus se aktualizovat pouze isAbsent
+    await updateDoc(taskRef, {
+      isAbsent,
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    // Pokud dokument neexistuje, vytvoř ho
+    await setDoc(taskRef, {
+      id: taskId,
+      employeeName,
+      taskDate,
+      taskContent: '',
+      status: 'pending',
+      isAbsent,
+      updatedAt: Timestamp.now()
+    });
   }
 };
 

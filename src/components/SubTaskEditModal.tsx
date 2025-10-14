@@ -13,6 +13,8 @@ interface SubTaskEditModalProps {
   employee: Employee;
   date: Date;
   initialSubTasks: SubTask[];
+  isAbsent: boolean;
+  onAbsenceToggle: () => void;
 }
 
 export default function SubTaskEditModal({
@@ -21,7 +23,9 @@ export default function SubTaskEditModal({
   onSave,
   employee,
   date,
-  initialSubTasks
+  initialSubTasks,
+  isAbsent,
+  onAbsenceToggle
 }: SubTaskEditModalProps) {
   const [subTasks, setSubTasks] = useState<SubTask[]>(initialSubTasks);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -154,6 +158,20 @@ export default function SubTaskEditModal({
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Absence toggle button */}
+        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <button
+            onClick={onAbsenceToggle}
+            className={`w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+              isAbsent 
+                ? 'bg-red-100 text-red-700 hover:bg-red-200 border-2 border-red-300' 
+                : 'bg-white text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
+            }`}
+          >
+            {isAbsent ? '✓ Označeno jako nepřítomen' : '🚫 Označit jako nepřítomen'}
           </button>
         </div>
 

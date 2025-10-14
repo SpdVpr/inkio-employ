@@ -11,6 +11,8 @@ interface TaskEditModalProps {
   employee: Employee;
   date: Date;
   initialContent: string;
+  isAbsent: boolean;
+  onAbsenceToggle: () => void;
 }
 
 export default function TaskEditModal({
@@ -19,7 +21,9 @@ export default function TaskEditModal({
   onSave,
   employee,
   date,
-  initialContent
+  initialContent,
+  isAbsent,
+  onAbsenceToggle
 }: TaskEditModalProps) {
   const [content, setContent] = useState(initialContent);
   const [history, setHistory] = useState<string[]>([initialContent]);
@@ -242,13 +246,27 @@ export default function TaskEditModal({
           </div>
         </div>
 
-        {/* Date info */}
+        {/* Date info and Absence button */}
         <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Calendar size={16} />
-            <span className="font-medium">
-              {formatDayName(date)} {formatDateDisplay(date)}
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Calendar size={16} />
+              <span className="font-medium">
+                {formatDayName(date)} {formatDateDisplay(date)}
+              </span>
+            </div>
+            
+            {/* Tlačítko pro nepřítomnost */}
+            <button
+              onClick={onAbsenceToggle}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                isAbsent 
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+              }`}
+            >
+              {isAbsent ? '✓ Nepřítomen' : '🚫 Označit jako nepřítomen'}
+            </button>
           </div>
         </div>
 
