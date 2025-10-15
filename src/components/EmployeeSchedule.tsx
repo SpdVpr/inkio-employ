@@ -17,7 +17,7 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 
 interface ModalState {
@@ -34,6 +34,12 @@ interface SubTaskModalState {
   initialSubTasks: SubTask[];
 }
 
+interface DragData {
+  employeeName: string;
+  date: string;
+  subTaskId: string;
+}
+
 export default function EmployeeSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Record<string, Record<string, string>>>({});
@@ -41,6 +47,7 @@ export default function EmployeeSchedule() {
   const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
   const [absences, setAbsences] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(true);
+  const [draggedCell, setDraggedCell] = useState<DragData | null>(null);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     employee: null,
@@ -214,6 +221,53 @@ export default function EmployeeSchedule() {
     }
   };
 
+  // Drag and drop handlers for sub-tasks
+  const handleDragStart = (employee: Employee, date: Date, subTaskId: string) => {
+    const dateStr = formatDate(date);
+    setDraggedCell({
+      employeeName: employee.name,
+      date: dateStr,
+      subTaskId
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedCell(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Nutné pro povolení drop
+  };
+
+  const handleDrop = async (employee: Employee, date: Date) => {
+    if (!draggedCell) return;
+
+    const targetDateStr = formatDate(date);
+    
+    // Kontrola, zda se jedná o stejného zaměstnance
+    if (draggedCell.employeeName !== employee.name) {
+      console.log('Cannot move sub-tasks between different employees');
+      setDraggedCell(null);
+      return;
+    }
+
+    // Kontrola, zda se nejedná o stejnou buňku
+    if (draggedCell.date === targetDateStr) {
+      setDraggedCell(null);
+      return;
+    }
+
+    try {
+      await moveSubTask(employee.name, draggedCell.date, targetDateStr, draggedCell.subTaskId);
+      console.log(`Sub-task ${draggedCell.subTaskId} moved from ${draggedCell.date} to ${targetDateStr}`);
+    } catch (error) {
+      console.error('Error moving sub-task:', error);
+      alert('Chyba při přesunu úkolu. Zkuste to prosím znovu.');
+    } finally {
+      setDraggedCell(null);
+    }
+  };
+
   // Funkce pro přechod na další zaměstnance odstraněna - už není potřeba
 
   // Výpočet týdenních dat pro render
@@ -316,6 +370,11 @@ export default function EmployeeSchedule() {
                     onOpenModal={handleOpenModal}
                     onStatusChange={handleStatusChange}
                     onAbsenceToggle={handleAbsenceToggle}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    draggedCell={draggedCell}
                   />
                 ))}
               </tbody>
@@ -356,7 +415,7 @@ export default function EmployeeSchedule() {
               <span>🚫 Nepřítomen</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs">💡 Tip: Klik na buňku pro editaci úkolů a označení nepřítomnosti, pravý klik pro změnu statusu</span>
+              <span className="text-xs">💡 Tip: Klik na buňku pro editaci úkolů, pravý klik pro změnu statusu, přetáhněte jednotlivé úkoly mezi dny myší</span>
             </div>
           </div>
         </div>

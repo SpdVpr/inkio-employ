@@ -7,6 +7,12 @@ import { MoreVertical } from 'lucide-react';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
 
+interface DragData {
+  employeeName: string;
+  date: string;
+  subTaskId: string;
+}
+
 interface EmployeeRowProps {
   employee: Employee;
   weekDays: Date[];
@@ -17,9 +23,29 @@ interface EmployeeRowProps {
   onOpenModal: (employee: Employee, date: Date, currentContent: string) => void;
   onStatusChange: (employee: Employee, date: Date, status: TaskStatus) => void;
   onAbsenceToggle: (employee: Employee, date: Date) => void;
+  onDragStart: (employee: Employee, date: Date, subTaskId: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (employee: Employee, date: Date) => void;
+  draggedCell: DragData | null;
 }
 
-export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, subTasks, absences, onOpenModal, onStatusChange, onAbsenceToggle }: EmployeeRowProps) {
+export default function EmployeeRow({ 
+  employee, 
+  weekDays, 
+  tasks, 
+  taskStatuses, 
+  subTasks, 
+  absences, 
+  onOpenModal, 
+  onStatusChange, 
+  onAbsenceToggle,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  draggedCell
+}: EmployeeRowProps) {
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
 
   const handleCellClick = (date: Date) => {
@@ -88,13 +114,18 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
         const progress = calculateProgress(daySubTasks);
         const isAbsent = absences[dateStr] || false;
         const isMenuOpen = showStatusMenu === dateStr;
+        const isDragTarget = draggedCell && draggedCell.employeeName === employee.name && draggedCell.date !== dateStr;
 
         return (
           <td
             key={dateStr}
-            className={`${getCellClasses(date, false, taskStatus, progress, isAbsent)} relative group`}
+            className={`${getCellClasses(date, false, taskStatus, progress, isAbsent)} relative group ${
+              isDragTarget ? 'ring-2 ring-blue-400 ring-inset' : ''
+            }`}
             data-employee={employee.name}
             data-date={dateStr}
+            onDragOver={onDragOver}
+            onDrop={() => onDrop(employee, date)}
             onClick={() => handleCellClick(date)}
             onContextMenu={(e) => handleContextMenu(e, date)}
           >
@@ -122,6 +153,9 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
                     // Otevři modal při kliku na sub-úkol
                     handleCellClick(date);
                   }}
+                  onDragStart={(subTaskId) => onDragStart(employee, date, subTaskId)}
+                  onDragEnd={onDragEnd}
+                  draggedSubTaskId={draggedCell?.subTaskId}
                 />
               </div>
 
@@ -155,6 +189,15 @@ export default function EmployeeRow({ employee, weekDays, tasks, taskStatuses, s
                   Klik pro editaci
                 </div>
               </div>
+
+              {/* Drag target indikátor */}
+              {isDragTarget && (
+                <div className="absolute inset-0 bg-blue-100 opacity-50 pointer-events-none flex items-center justify-center">
+                  <div className="text-blue-700 font-semibold text-sm bg-white px-2 py-1 rounded shadow">
+                    Přesunout sem
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Context menu pro status a absenci */}

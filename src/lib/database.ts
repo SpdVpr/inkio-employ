@@ -273,6 +273,94 @@ export const toggleAbsent = async (
   }
 };
 
+// Move a single sub-task from one date to another for the same employee
+export const moveSubTask = async (
+  employeeName: string,
+  fromDate: string,
+  toDate: string,
+  subTaskId: string
+): Promise<void> => {
+  const fromTaskId = `${employeeName.toLowerCase()}_${fromDate}`;
+  const toTaskId = `${employeeName.toLowerCase()}_${toDate}`;
+  
+  const fromTaskRef = doc(db, COLLECTION_NAME, fromTaskId);
+  const toTaskRef = doc(db, COLLECTION_NAME, toTaskId);
+
+  try {
+    // Získej data ze zdrojového úkolu
+    const fromDocSnap = await getDoc(fromTaskRef);
+    
+    if (!fromDocSnap.exists()) {
+      console.log('Source task does not exist');
+      return;
+    }
+
+    const sourceTask = fromDocSnap.data() as ScheduleTask;
+    const migratedTask = migrateTaskToSubTasks(sourceTask);
+    const sourceSubTasks = migratedTask.subTasks || [];
+
+    // Najdi sub-úkol, který chceme přesunout
+    const subTaskToMove = sourceSubTasks.find(st => st.id === subTaskId);
+    
+    if (!subTaskToMove) {
+      console.log('Sub-task not found');
+      return;
+    }
+
+    // Odstraň sub-úkol ze zdrojového úkolu
+    const remainingSubTasks = sourceSubTasks.filter(st => st.id !== subTaskId);
+    
+    // Přečísluj zbývající sub-úkoly
+    const reorderedRemainingSubTasks = remainingSubTasks.map((st, index) => ({
+      ...st,
+      order: index
+    }));
+
+    // Zkontroluj, zda cílový úkol existuje
+    const toDocSnap = await getDoc(toTaskRef);
+    
+    if (toDocSnap.exists()) {
+      // Cílový úkol existuje - přidej sub-úkol
+      const targetTask = toDocSnap.data() as ScheduleTask;
+      const migratedTargetTask = migrateTaskToSubTasks(targetTask);
+      
+      const existingSubTasks = migratedTargetTask.subTasks || [];
+      
+      // Najdi nejvyšší order v cílovém úkolu
+      const maxOrder = existingSubTasks.length > 0 
+        ? Math.max(...existingSubTasks.map(st => st.order))
+        : -1;
+      
+      // Přidej přesunutý sub-úkol na konec
+      const movedSubTask = {
+        ...subTaskToMove,
+        order: maxOrder + 1
+      };
+      
+      // Slouč sub-úkoly
+      const mergedSubTasks = [...existingSubTasks, movedSubTask];
+      
+      // Ulož sloučené sub-úkoly do cílového úkolu
+      await saveSubTasks(employeeName, toDate, mergedSubTasks);
+    } else {
+      // Cílový úkol neexistuje - vytvoř nový s přesunutým sub-úkolem
+      const movedSubTask = {
+        ...subTaskToMove,
+        order: 0
+      };
+      await saveSubTasks(employeeName, toDate, [movedSubTask]);
+    }
+
+    // Ulož aktualizovaný zdrojový úkol
+    await saveSubTasks(employeeName, fromDate, reorderedRemainingSubTasks);
+
+    console.log(`Sub-task ${subTaskId} moved from ${fromDate} to ${toDate} for ${employeeName}`);
+  } catch (error) {
+    console.error('Error moving sub-task:', error);
+    throw error;
+  }
+};
+
 // Subscribe to tasks for a specific date range
 export const subscribeToTasks = (
   startDate: string,

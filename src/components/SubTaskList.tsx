@@ -9,6 +9,9 @@ interface SubTaskListProps {
   onSubTaskClick?: (subTask: SubTask) => void;
   onStatusChange?: (subTaskId: string, status: TaskStatus) => void;
   isCompact?: boolean;
+  onDragStart?: (subTaskId: string) => void;
+  onDragEnd?: () => void;
+  draggedSubTaskId?: string;
 }
 
 export default function SubTaskList({ 
@@ -16,7 +19,10 @@ export default function SubTaskList({
   maxVisible = 3,
   onSubTaskClick,
   onStatusChange,
-  isCompact = true
+  isCompact = true,
+  onDragStart,
+  onDragEnd,
+  draggedSubTaskId
 }: SubTaskListProps) {
   if (!subTasks || subTasks.length === 0) {
     return (
@@ -45,38 +51,61 @@ export default function SubTaskList({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, subTask: SubTask) => {
+    e.stopPropagation();
+    if (onDragStart) {
+      onDragStart(subTask.id);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.stopPropagation();
+    if (onDragEnd) {
+      onDragEnd();
+    }
+  };
+
   return (
     <div className="space-y-0.5">
-      {visibleTasks.map((task, index) => (
-        <div
-          key={task.id}
-          className="flex items-start gap-1.5 text-xs group/subtask hover:bg-gray-50 rounded px-1 py-0.5 transition-colors min-h-[16px]"
-        >
-          <button
-            onClick={(e) => handleStatusClick(e, task)}
-            className="flex-shrink-0 hover:scale-110 transition-transform mt-0.5"
-            title={`Klikněte pro změnu statusu (${task.status})`}
-          >
-            {getSubTaskIcon(task.status)}
-          </button>
-          <span
-            className={`cursor-pointer flex-1 leading-tight break-words ${
-              task.status === 'completed'
-                ? 'line-through text-gray-500'
-                : 'text-gray-900'
+      {visibleTasks.map((task, index) => {
+        const isDragging = draggedSubTaskId === task.id;
+        
+        return (
+          <div
+            key={task.id}
+            draggable={!!onDragStart}
+            onDragStart={(e) => handleDragStart(e, task)}
+            onDragEnd={handleDragEnd}
+            className={`flex items-start gap-1.5 text-xs group/subtask hover:bg-gray-50 rounded px-1 py-0.5 transition-colors min-h-[16px] ${
+              isDragging ? 'opacity-30 cursor-grabbing' : onDragStart ? 'cursor-grab' : ''
             }`}
-            onClick={(e) => handleSubTaskClick(e, task)}
-            title={task.content}
-            style={{
-              wordBreak: 'break-word',
-              hyphens: 'auto',
-              lineHeight: '1.2'
-            }}
           >
-            {isCompact ? truncateText(task.content, 35) : task.content}
-          </span>
-        </div>
-      ))}
+            <button
+              onClick={(e) => handleStatusClick(e, task)}
+              className="flex-shrink-0 hover:scale-110 transition-transform mt-0.5"
+              title={`Klikněte pro změnu statusu (${task.status})`}
+            >
+              {getSubTaskIcon(task.status)}
+            </button>
+            <span
+              className={`cursor-pointer flex-1 leading-tight break-words ${
+                task.status === 'completed'
+                  ? 'line-through text-gray-500'
+                  : 'text-gray-900'
+              }`}
+              onClick={(e) => handleSubTaskClick(e, task)}
+              title={task.content}
+              style={{
+                wordBreak: 'break-word',
+                hyphens: 'auto',
+                lineHeight: '1.2'
+              }}
+            >
+              {isCompact ? truncateText(task.content, 35) : task.content}
+            </span>
+          </div>
+        );
+      })}
 
       {hiddenCount > 0 && (
         <div className="text-xs text-gray-400 px-1 mt-1">
