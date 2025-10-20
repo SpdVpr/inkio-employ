@@ -23,6 +23,7 @@ export const employees: Employee[] = [
   { name: 'Roman', position: 'DTP / Motion', type: 'external' },
   { name: 'Honza Dočkal', position: 'Grafika / DTP', type: 'external' },
   { name: 'Lukáš', position: '3D / Motion', type: 'external' },
+  { name: 'Egor', position: 'Video editor', type: 'external' },
 ];
 
 // Získání týdne pro daný datum
