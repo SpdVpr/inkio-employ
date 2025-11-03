@@ -17,6 +17,7 @@ export const employees: Employee[] = [
   { name: 'Tonda', position: 'Grafika / DTP', type: 'internal' },
   { name: 'Bětka', position: '', type: 'internal' },
   { name: 'Yume', position: 'Grafika / Foto', type: 'internal' },
+  { name: 'Adam', position: 'Video Maker', type: 'internal' },
 
   // Externí zaměstnanci
   { name: 'Vlaďka', position: 'Copy', type: 'external' },
