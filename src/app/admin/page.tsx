@@ -77,6 +77,8 @@ export default function AdminPage() {
       type: employee.type
     });
     setIsAddingNew(false);
+    // Automaticky scrollovat nahoru k formuláři
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Zahájit přidání nového
@@ -285,7 +287,7 @@ export default function AdminPage() {
                       onChange={(e) => setFormData({ ...formData, type: e.target.value as 'internal' | 'external' })}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-gray-900">
                       <div className="w-3 h-3 rounded-full bg-green-500"></div>
                       Interní
                     </span>
@@ -298,7 +300,7 @@ export default function AdminPage() {
                       onChange={(e) => setFormData({ ...formData, type: e.target.value as 'internal' | 'external' })}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-gray-900">
                       <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                       Externí
                     </span>
@@ -513,7 +515,6 @@ export default function AdminPage() {
             <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
               <li>Změny se okamžitě projeví v hlavním rozvrhu</li>
               <li>Smazání zaměstnance nesmaže jejich úkoly v rozvrhu</li>
-              <li>Heslo lze změnit v <code className="bg-yellow-100 px-1 rounded">.env.local</code> nastavením <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_ADMIN_PASSWORD</code></li>
             </ul>
           </div>
         </div>
