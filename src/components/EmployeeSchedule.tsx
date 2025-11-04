@@ -6,7 +6,7 @@ import EmployeeRow from './EmployeeRow';
 import TaskEditModal from './TaskEditModal';
 import SubTaskEditModal from './SubTaskEditModal';
 import {
-  employees,
+  defaultEmployees,
   getWeekDates,
   getNextWeek,
   getPreviousWeek,
@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils';
 import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
+import { subscribeToEmployees, EmployeeDocument } from '@/lib/employees';
 
 interface ModalState {
   isOpen: boolean;
@@ -42,6 +43,7 @@ interface DragData {
 
 export default function EmployeeSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [employees, setEmployees] = useState<Employee[]>(defaultEmployees); // Začneme s výchozími zaměstnanci
   const [tasks, setTasks] = useState<Record<string, Record<string, string>>>({});
   const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
   const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
@@ -60,6 +62,28 @@ export default function EmployeeSchedule() {
     date: null,
     initialSubTasks: []
   });
+
+  // Přihlášení k odběru zaměstnanců z Firebase
+  useEffect(() => {
+    const unsubscribe = subscribeToEmployees((employeeList: EmployeeDocument[]) => {
+      // Převedeme EmployeeDocument na Employee (odstraníme Firebase specifické fieldy)
+      const employeesData: Employee[] = employeeList.map(emp => ({
+        name: emp.name,
+        position: emp.position,
+        type: emp.type
+      }));
+      
+      // Pokud je seznam prázdný, použijeme výchozí zaměstnance
+      if (employeesData.length === 0) {
+        console.log('No employees in Firebase, using default employees');
+        setEmployees(defaultEmployees);
+      } else {
+        setEmployees(employeesData);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Přihlášení k odběru úkolů pro aktuální týden
   useEffect(() => {
@@ -307,17 +331,26 @@ export default function EmployeeSchedule() {
       <div className="max-w-[1920px] mx-auto">
         {/* Hlavička */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Rozvrh zaměstnanců Inkio
-            </h1>
-            {isDevelopment() && (
-              <div className="px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full">
-                <span className="text-xs font-medium text-yellow-800">
-                  🚧 {getEnvironmentName()} ({getFirebaseProjectId()})
-                </span>
-              </div>
-            )}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold text-gray-900">
+                Rozvrh zaměstnanců Inkio
+              </h1>
+              {isDevelopment() && (
+                <div className="px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full">
+                  <span className="text-xs font-medium text-yellow-800">
+                    🚧 {getEnvironmentName()} ({getFirebaseProjectId()})
+                  </span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => window.location.href = '/admin'}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2"
+              title="Správa zaměstnanců"
+            >
+              🔧 Admin
+            </button>
           </div>
           <p className="text-gray-600">
             Týdenní plánování úkolů pro interní a externí zaměstnance

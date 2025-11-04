@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Úkoly v rozvrhu - production
+    match /schedule_tasks/{document} {
+      allow read: if true;
+      allow write: if true; // Pro produkci zvažte omezení: if request.auth != null
+    }
+    
+    // Úkoly v rozvrhu - development
+    match /schedule_tasks_dev/{document} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
+    // Zaměstnanci - production
+    match /employees/{document} {
+      allow read: if true;
+      allow write: if true; // Pro produkci zvažte omezení: if request.auth != null
+    }
+    
+    // Zaměstnanci - development
+    match /employees_dev/{document} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

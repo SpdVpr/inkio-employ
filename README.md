@@ -6,6 +6,7 @@ Webová aplikace pro plánování týdenních úkolů zaměstnanců firmy Inkio 
 
 - **Týdenní zobrazení** - Přehledná tabulka s navigací mezi týdny
 - **Real-time editace** - Okamžité ukládání a synchronizace změn
+- **Admin rozhraní** - Správa zaměstnanců (přidávání, úpravy, mazání)
 - **Responsive design** - Optimalizováno pro desktop, tablet i mobil
 - **Barevné rozlišení** - Interní (zelení) vs externí (modří) zaměstnanci
 - **Excel-like UX** - Jednoduché kliknutí a psaní
@@ -78,22 +79,41 @@ npm run dev
 
 Aplikace bude dostupná na http://localhost:3000
 
-## 👥 Zaměstnanci
+## 👥 Správa zaměstnanců
 
-Aplikace obsahuje přednastavené zaměstnance:
+Zaměstnanci jsou nyní **plně spravovatelní** přes admin rozhraní:
 
-**Interní (zelení):**
-- Radim, Radek, Věrka, Tonda, Lukáš
+- **Přidávání** nových zaměstnanců
+- **Úpravy** stávajících zaměstnanců
+- **Mazání** zaměstnanců
+- **Real-time synchronizace** změn
 
-**Externí (modří):**
-- Vlaďka, Roman, Honza Dočkal, Terka, Michal, Yume
+**Výchozí zaměstnanci:**
+
+*Interní (zelení):* Radim, Radek, Věrka, Tonda, Bětka, Yume, Adam
+
+*Externí (modří):* Vlaďka, Roman, Honza Dočkal, Lukáš, Egor
+
+> 💡 Zaměstnanci jsou uloženi ve Firebase a můžete je upravovat v Admin rozhraní.
 
 ## 🎯 Použití
+
+### Základní práce s rozvrhem
 
 1. **Navigace:** Použijte šipky pro přepínání mezi týdny
 2. **Editace:** Klikněte na buňku a začněte psát
 3. **Uložení:** Automatické při opuštění buňky nebo stisknutí Enter
 4. **Zrušení:** ESC pro zrušení editace
+
+### Admin rozhraní
+
+Pro správu zaměstnanců (přidávání, úpravy, mazání):
+
+1. **Přístup:** Klikněte na tlačítko "🔧 Admin" v pravém horním rohu
+2. **Přihlášení:** Výchozí heslo je `inkio2024`
+3. **První spuštění:** Spusťte migraci zaměstnanců do Firebase
+
+📖 **Kompletní dokumentace:** Viz [ADMIN.md](./ADMIN.md)
 
 ## 🔒 Firestore Security Rules
 
@@ -103,12 +123,33 @@ Pro produkci nastavte bezpečnostní pravidla:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Úkoly v rozvrhu - čtení a zápis pro všechny
     match /schedule_tasks/{document} {
-      allow read, write: if true; // Pro začátek - později omezte
+      allow read, write: if true;
+    }
+    
+    // Úkoly v rozvrhu - development kolekce
+    match /schedule_tasks_dev/{document} {
+      allow read, write: if true;
+    }
+    
+    // Zaměstnanci - čtení pro všechny, zápis pouze s autentizací
+    // Pro začátek povolte všem, později omezte
+    match /employees/{document} {
+      allow read: if true;
+      allow write: if true; // Později změňte na: if request.auth != null;
+    }
+    
+    // Zaměstnanci - development kolekce
+    match /employees_dev/{document} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }
 ```
+
+> ⚠️ **Pro produkci:** Změňte `write: if true` na `write: if request.auth != null` a implementujte autentizaci!
 
 ## 🚀 Deploy na Vercel
 
@@ -154,8 +195,12 @@ interface ScheduleTask {
 
 ## 📈 Roadmapa
 
-- [ ] Autentifikace uživatelů
+- [x] Admin rozhraní pro správu zaměstnanců
+- [x] Real-time synchronizace zaměstnanců
+- [ ] Multi-uživatelská autentizace (Firebase Auth)
+- [ ] Role-based přístup (admin, editor, viewer)
 - [ ] Drag & drop úkolů
 - [ ] Export do Excel
 - [ ] Email notifikace
 - [ ] PWA podpora
+- [ ] Audit log změn

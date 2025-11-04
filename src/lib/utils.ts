@@ -8,8 +8,9 @@ export interface Employee {
   type: 'internal' | 'external';
 }
 
-// Seznam zaměstnanců podle popisu
-export const employees: Employee[] = [
+// Výchozí seznam zaměstnanců (fallback pro případ selhání Firebase)
+// Tento seznam slouží jako záloha a pro migraci do Firebase
+export const defaultEmployees: Employee[] = [
   // Interní zaměstnanci
   { name: 'Radim', position: 'Foto / Retuše / Ad Hoc úkoly', type: 'internal' },
   { name: 'Radek', position: 'Copy', type: 'internal' },
@@ -26,6 +27,9 @@ export const employees: Employee[] = [
   { name: 'Lukáš', position: '3D / Motion', type: 'external' },
   { name: 'Egor', position: 'Video editor', type: 'external' },
 ];
+
+// Pro zpětnou kompatibilitu - použije se pouze jako fallback
+export const employees = defaultEmployees;
 
 // Získání týdne pro daný datum
 export const getWeekDates = (date: Date) => {
