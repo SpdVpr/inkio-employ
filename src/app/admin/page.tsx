@@ -189,8 +189,6 @@ export default function AdminPage() {
           </form>
           
           <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Výchozí heslo: <code className="bg-gray-100 px-2 py-1 rounded">inkio2024</code></p>
-            <p className="mt-2 text-xs">Změňte heslo v <code>.env.local</code> souboru</p>
           </div>
         </div>
       </div>
@@ -522,4 +520,5 @@ export default function AdminPage() {
       </div>
     </div>
   );
+
 }
