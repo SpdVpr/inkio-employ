@@ -298,7 +298,7 @@ export default function EmployeeSchedule() {
   const weekData = getWeekDates(currentDate);
 
   const getHeaderCellClasses = (date: Date) => {
-    let classes = 'px-4 py-3 text-center border-r border-gray-300 w-[240px] min-w-[240px] max-w-[240px]';
+    let classes = 'px-4 py-3 text-center border-r border-gray-300 w-[240px] min-w-[240px] max-w-[240px] z-10';
 
     if (isCurrentDay(date)) {
       classes += ' bg-blue-200 font-semibold text-blue-900';
@@ -365,54 +365,52 @@ export default function EmployeeSchedule() {
         />
 
         {/* Hlavní tabulka */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1880px]">
-              {/* Hlavička tabulky */}
-              <thead>
-                <tr className="border-b border-gray-300">
-                  <th className="sticky left-0 bg-gray-100 px-4 py-3 text-left font-semibold text-gray-900 border-r border-gray-300 min-w-[200px] w-[200px] z-10 h-[60px] align-top">
-                    Zaměstnanec
-                  </th>
-                  {weekData.days.map((date) => (
-                    <th key={formatDate(date)} className={getHeaderCellClasses(date)}>
-                      <div className="space-y-1">
-                        <div className="font-semibold text-sm">
-                          {formatDayName(date)}
-                        </div>
-                        <div className="text-sm font-normal">
-                          {formatDateDisplay(date)}
-                        </div>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+        <div className="bg-white rounded-lg shadow-sm border table-with-sticky-header">
+          <table className="w-full min-w-[1880px]">
+            {/* Hlavička tabulky */}
+            <thead>
+              <tr className="border-b border-gray-300">
+                <th className="sticky-left bg-gray-100 px-4 py-3 text-left font-semibold text-gray-900 border-r border-gray-300 min-w-[200px] w-[200px] h-[60px] align-top">
+                  Zaměstnanec
+                </th>
+              {weekData.days.map((date) => (
+                <th key={formatDate(date)} className={getHeaderCellClasses(date)}>
+                  <div className="space-y-1">
+                    <div className="font-semibold text-sm">
+                      {formatDayName(date)}
+                    </div>
+                    <div className="text-sm font-normal">
+                      {formatDateDisplay(date)}
+                    </div>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
 
-              {/* Tělo tabulky */}
-              <tbody>
-                {employees.map((employee) => (
-                  <EmployeeRow
-                    key={employee.name}
-                    employee={employee}
-                    weekDays={weekData.days}
-                    tasks={tasks[employee.name] || {}}
-                    taskStatuses={taskStatuses[employee.name] || {}}
-                    subTasks={subTasks[employee.name] || {}}
-                    absences={absences[employee.name] || {}}
-                    onOpenModal={handleOpenModal}
-                    onStatusChange={handleStatusChange}
-                    onAbsenceToggle={handleAbsenceToggle}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    draggedCell={draggedCell}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Tělo tabulky */}
+          <tbody>
+            {employees.map((employee) => (
+              <EmployeeRow
+                key={employee.name}
+                employee={employee}
+                weekDays={weekData.days}
+                tasks={tasks[employee.name] || {}}
+                taskStatuses={taskStatuses[employee.name] || {}}
+                subTasks={subTasks[employee.name] || {}}
+                absences={absences[employee.name] || {}}
+                onOpenModal={handleOpenModal}
+                onStatusChange={handleStatusChange}
+                onAbsenceToggle={handleAbsenceToggle}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                draggedCell={draggedCell}
+              />
+            ))}
+          </tbody>
+        </table>
         </div>
 
         {/* Legenda */}

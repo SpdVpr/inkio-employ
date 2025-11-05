@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Sticky table header that works with horizontal scroll */
+.table-with-sticky-header {
+  max-height: calc(100vh - 250px);
+  overflow: auto;
+  position: relative;
+}
+
+.table-with-sticky-header thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-clip: padding-box;
+}
+
+.table-with-sticky-header th.sticky-left {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+}
+
+.table-with-sticky-header tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-clip: padding-box;
+}

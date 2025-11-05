@@ -87,7 +87,7 @@ export default function EmployeeRow({
   return (
     <tr className={getEmployeeRowClasses(employee)}>
       {/* Jméno zaměstnance */}
-      <td className="sticky left-0 bg-white border-r border-gray-200 p-3 z-10 w-[200px] min-w-[200px] max-w-[200px] h-[120px] align-top">
+      <th className="sticky-left sticky left-0 bg-white border-r border-gray-200 p-3 w-[200px] min-w-[200px] max-w-[200px] h-[120px] align-top text-left font-normal">
         <div className="flex items-center gap-3">
           <div
             className={`w-3 h-3 rounded-full flex-shrink-0 ${
@@ -103,7 +103,7 @@ export default function EmployeeRow({
             </div>
           </div>
         </div>
-      </td>
+      </th>
 
       {/* Buňky pro jednotlivé dny - pouze náhled */}
       {weekDays.map((date) => {
