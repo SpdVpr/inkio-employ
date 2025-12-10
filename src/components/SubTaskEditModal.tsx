@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, GripVertical } from 'lucide-react';
-import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus } from '@/lib/utils';
-import { SubTask, TaskStatus, generateSubTaskId, calculateProgress, calculateOverallStatus } from '@/lib/database';
+import { useState, useEffect, useRef } from 'react';
+import { X, Plus, Trash2, GripVertical, CornerUpRight } from 'lucide-react';
+import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
+import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee } from '@/lib/database';
 import ProgressBar from './ProgressBar';
 
 interface SubTaskEditModalProps {
@@ -15,6 +15,7 @@ interface SubTaskEditModalProps {
   initialSubTasks: SubTask[];
   isAbsent: boolean;
   onAbsenceToggle: () => void;
+  employees?: Employee[];
 }
 
 export default function SubTaskEditModal({
@@ -25,15 +26,33 @@ export default function SubTaskEditModal({
   date,
   initialSubTasks,
   isAbsent,
-  onAbsenceToggle
+  onAbsenceToggle,
+  employees = []
 }: SubTaskEditModalProps) {
   const [subTasks, setSubTasks] = useState<SubTask[]>(initialSubTasks);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
+  const [movingTaskPosition, setMovingTaskPosition] = useState<{ top: number; right: number } | null>(null);
+  const moveMenuRef = useRef<HTMLDivElement>(null);
 
   // Aktualizuj sub-úkoly když se změní initialSubTasks
   useEffect(() => {
     setSubTasks(initialSubTasks);
   }, [initialSubTasks]);
+
+  // Close move menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(event.target as Node)) {
+        setMovingTaskId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Zavři modal při ESC
   useEffect(() => {
@@ -91,7 +110,7 @@ export default function SubTaskEditModal({
   };
 
   const updateSubTask = (id: string, updates: Partial<SubTask>) => {
-    setSubTasks(prev => prev.map(task => 
+    setSubTasks(prev => prev.map(task =>
       task.id === id ? { ...task, ...updates } : task
     ));
   };
@@ -101,9 +120,32 @@ export default function SubTaskEditModal({
   };
 
   const toggleSubTaskStatus = (id: string) => {
-    setSubTasks(prev => prev.map(task => 
+    setSubTasks(prev => prev.map(task =>
       task.id === id ? { ...task, status: getNextStatus(task.status) } : task
     ));
+  };
+
+  const handleMoveTask = async (task: SubTask, targetEmployee: Employee) => {
+    try {
+      const dateStr = formatDate(date);
+
+      // 1. Add to target employee
+      await addSubTaskToEmployee(targetEmployee.name, dateStr, task);
+
+      // 2. Remove from current list (local state)
+      const newSubTasks = subTasks.filter(t => t.id !== task.id);
+      setSubTasks(newSubTasks);
+      setMovingTaskId(null);
+
+      // 3. Save current employee's list (remove from DB)
+      // Note: We need to re-index orders
+      const updatedSubTasks = newSubTasks.map((t, index) => ({ ...t, order: index }));
+      onSave(updatedSubTasks);
+
+    } catch (error) {
+      console.error('Error moving task:', error);
+      alert('Nepodařilo se přesunout úkol. Zkuste to prosím znovu.');
+    }
   };
 
   const handleDragStart = (index: number) => {
@@ -118,7 +160,7 @@ export default function SubTaskEditModal({
     const draggedItem = newSubTasks[draggedIndex];
     newSubTasks.splice(draggedIndex, 1);
     newSubTasks.splice(index, 0, draggedItem);
-    
+
     setSubTasks(newSubTasks);
     setDraggedIndex(index);
   };
@@ -140,9 +182,8 @@ export default function SubTaskEditModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <div
-              className={`w-4 h-4 rounded-full ${
-                employee.type === 'internal' ? 'bg-green-500' : 'bg-blue-500'
-              }`}
+              className={`w-4 h-4 rounded-full ${employee.type === 'internal' ? 'bg-green-500' : 'bg-blue-500'
+                }`}
             />
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
@@ -165,11 +206,10 @@ export default function SubTaskEditModal({
         <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
           <button
             onClick={onAbsenceToggle}
-            className={`w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
-              isAbsent 
-                ? 'bg-red-100 text-red-700 hover:bg-red-200 border-2 border-red-300' 
-                : 'bg-white text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
-            }`}
+            className={`w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${isAbsent
+              ? 'bg-red-100 text-red-700 hover:bg-red-200 border-2 border-red-300'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
+              }`}
           >
             {isAbsent ? '✓ Označeno jako nepřítomen' : '🚫 Označit jako nepřítomen'}
           </button>
@@ -205,12 +245,11 @@ export default function SubTaskEditModal({
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
-                className={`flex items-center gap-3 p-3 border rounded-lg transition-all ${
-                  draggedIndex === index ? 'opacity-50' : 'opacity-100'
-                } hover:bg-gray-50 cursor-move`}
+                className={`flex items-center gap-3 p-3 border rounded-lg transition-all ${draggedIndex === index ? 'opacity-50' : 'opacity-100'
+                  } hover:bg-gray-50 cursor-move relative`}
               >
                 <GripVertical size={16} className="text-gray-400 flex-shrink-0" />
-                
+
                 <button
                   onClick={() => toggleSubTaskStatus(task.id)}
                   className="flex-shrink-0 hover:scale-110 transition-transform"
@@ -223,20 +262,69 @@ export default function SubTaskEditModal({
                   value={task.content}
                   onChange={(e) => updateSubTask(task.id, { content: e.target.value })}
                   placeholder="Zadejte úkol..."
-                  className={`flex-1 px-2 py-1 border-none outline-none bg-transparent text-black font-medium ${
-                    task.status === 'completed' ? 'line-through text-gray-500' : ''
-                  }`}
+                  className={`flex-1 px-2 py-1 border-none outline-none bg-transparent text-black font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : ''
+                    }`}
                 />
 
-                <button
-                  onClick={() => deleteSubTask(task.id)}
-                  className="flex-shrink-0 p-1 hover:bg-red-100 rounded transition-colors text-red-500"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMovingTaskId(movingTaskId === task.id ? null : task.id);
+                        setMovingTaskPosition({ top: rect.bottom, right: window.innerWidth - rect.right });
+                      }}
+                      className="flex-shrink-0 p-1 hover:bg-blue-100 rounded transition-colors text-blue-500"
+                      title="Přesunout úkol"
+                    >
+                      <CornerUpRight size={16} />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => deleteSubTask(task.id)}
+                    className="flex-shrink-0 p-1 hover:bg-red-100 rounded transition-colors text-red-500"
+                    title="Smazat úkol"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Fixed Position Move Menu */}
+          {movingTaskId && movingTaskPosition && (
+            <div
+              ref={moveMenuRef}
+              style={{
+                top: movingTaskPosition.top + 4,
+                right: movingTaskPosition.right,
+              }}
+              className="fixed w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-[100] py-1 max-h-60 overflow-y-auto"
+            >
+              <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b bg-gray-50">
+                Přesunout na:
+              </div>
+              {employees
+                .filter(e => e.name !== employee.name)
+                .map((targetEmp) => (
+                  <button
+                    key={targetEmp.name}
+                    onClick={() => {
+                      const task = subTasks.find(t => t.id === movingTaskId);
+                      if (task) handleMoveTask(task, targetEmp);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${targetEmp.type === 'internal' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                    {targetEmp.name}
+                  </button>
+                ))
+              }
+            </div>
+          )}
+
 
           <button
             onClick={addSubTask}
@@ -262,7 +350,7 @@ export default function SubTaskEditModal({
             Uložit úkoly
           </button>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

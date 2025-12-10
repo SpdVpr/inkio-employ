@@ -394,3 +394,41 @@ export const subscribeToTasks = (
     callback(tasks);
   });
 };
+
+// Add a sub-task to a specific employee and date
+export const addSubTaskToEmployee = async (
+  employeeName: string,
+  taskDate: string,
+  subTask: SubTask
+): Promise<void> => {
+  const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
+  const taskRef = doc(db, COLLECTION_NAME, taskId);
+
+  try {
+    const docSnap = await getDoc(taskRef);
+    let newSubTasks: SubTask[] = [];
+
+    if (docSnap.exists()) {
+      const currentTask = docSnap.data() as ScheduleTask;
+      const migratedTask = migrateTaskToSubTasks(currentTask);
+      const existingSubTasks = migratedTask.subTasks || [];
+      
+      // Find max order
+      const maxOrder = existingSubTasks.length > 0 
+        ? Math.max(...existingSubTasks.map(st => st.order))
+        : -1;
+
+      // Add new sub-task with incremented order
+      newSubTasks = [...existingSubTasks, { ...subTask, order: maxOrder + 1 }];
+    } else {
+      // Create new document with single sub-task
+      newSubTasks = [{ ...subTask, order: 0 }];
+    }
+
+    // Save updated sub-tasks
+    await saveSubTasks(employeeName, taskDate, newSubTasks);
+  } catch (error) {
+    console.error('Error adding sub-task to employee:', error);
+    throw error;
+  }
+};

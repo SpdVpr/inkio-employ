@@ -72,7 +72,7 @@ export default function EmployeeSchedule() {
         position: emp.position,
         type: emp.type
       }));
-      
+
       // Pokud je seznam prázdný, použijeme výchozí zaměstnance
       if (employeesData.length === 0) {
         console.log('No employees in Firebase, using default employees');
@@ -267,7 +267,7 @@ export default function EmployeeSchedule() {
     if (!draggedCell) return;
 
     const targetDateStr = formatDate(date);
-    
+
     // Kontrola, zda se jedná o stejného zaměstnance
     if (draggedCell.employeeName !== employee.name) {
       console.log('Cannot move sub-tasks between different employees');
@@ -373,44 +373,44 @@ export default function EmployeeSchedule() {
                 <th className="sticky-left bg-gray-100 px-4 py-3 text-left font-semibold text-gray-900 border-r border-gray-300 min-w-[200px] w-[200px] h-[60px] align-top">
                   Zaměstnanec
                 </th>
-              {weekData.days.map((date) => (
-                <th key={formatDate(date)} className={getHeaderCellClasses(date)}>
-                  <div className="space-y-1">
-                    <div className="font-semibold text-sm">
-                      {formatDayName(date)}
+                {weekData.days.map((date) => (
+                  <th key={formatDate(date)} className={getHeaderCellClasses(date)}>
+                    <div className="space-y-1">
+                      <div className="font-semibold text-sm">
+                        {formatDayName(date)}
+                      </div>
+                      <div className="text-sm font-normal">
+                        {formatDateDisplay(date)}
+                      </div>
                     </div>
-                    <div className="text-sm font-normal">
-                      {formatDateDisplay(date)}
-                    </div>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-          {/* Tělo tabulky */}
-          <tbody>
-            {employees.map((employee) => (
-              <EmployeeRow
-                key={employee.name}
-                employee={employee}
-                weekDays={weekData.days}
-                tasks={tasks[employee.name] || {}}
-                taskStatuses={taskStatuses[employee.name] || {}}
-                subTasks={subTasks[employee.name] || {}}
-                absences={absences[employee.name] || {}}
-                onOpenModal={handleOpenModal}
-                onStatusChange={handleStatusChange}
-                onAbsenceToggle={handleAbsenceToggle}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                draggedCell={draggedCell}
-              />
-            ))}
-          </tbody>
-        </table>
+            {/* Tělo tabulky */}
+            <tbody>
+              {employees.map((employee) => (
+                <EmployeeRow
+                  key={employee.name}
+                  employee={employee}
+                  weekDays={weekData.days}
+                  tasks={tasks[employee.name] || {}}
+                  taskStatuses={taskStatuses[employee.name] || {}}
+                  subTasks={subTasks[employee.name] || {}}
+                  absences={absences[employee.name] || {}}
+                  onOpenModal={handleOpenModal}
+                  onStatusChange={handleStatusChange}
+                  onAbsenceToggle={handleAbsenceToggle}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  draggedCell={draggedCell}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Legenda */}
@@ -459,8 +459,8 @@ export default function EmployeeSchedule() {
           employee={modalState.employee || employees[0]}
           date={modalState.date || new Date()}
           initialContent={modalState.initialContent}
-          isAbsent={modalState.employee && modalState.date 
-            ? absences[modalState.employee.name]?.[formatDate(modalState.date)] || false 
+          isAbsent={modalState.employee && modalState.date
+            ? absences[modalState.employee.name]?.[formatDate(modalState.date)] || false
             : false}
           onAbsenceToggle={() => {
             if (modalState.employee && modalState.date) {
@@ -477,14 +477,15 @@ export default function EmployeeSchedule() {
           employee={subTaskModalState.employee || employees[0]}
           date={subTaskModalState.date || new Date()}
           initialSubTasks={subTaskModalState.initialSubTasks}
-          isAbsent={subTaskModalState.employee && subTaskModalState.date 
-            ? absences[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] || false 
+          isAbsent={subTaskModalState.employee && subTaskModalState.date
+            ? absences[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] || false
             : false}
           onAbsenceToggle={() => {
             if (subTaskModalState.employee && subTaskModalState.date) {
               handleAbsenceToggle(subTaskModalState.employee, subTaskModalState.date);
             }
           }}
+          employees={employees}
         />
       </div>
     </div>
