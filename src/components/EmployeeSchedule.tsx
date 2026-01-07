@@ -390,7 +390,49 @@ export default function EmployeeSchedule() {
 
             {/* Tělo tabulky */}
             <tbody>
-              {employees.map((employee) => (
+              {/* Interní zaměstnanci */}
+              {employees.filter(e => e.type === 'internal').length > 0 && (
+                <tr className="bg-green-50">
+                  <td colSpan={8} className="sticky-left sticky left-0 px-4 py-2 font-semibold text-gray-900 text-sm border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      Interní zaměstnanci
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {employees.filter(e => e.type === 'internal').map((employee) => (
+                <EmployeeRow
+                  key={employee.name}
+                  employee={employee}
+                  weekDays={weekData.days}
+                  tasks={tasks[employee.name] || {}}
+                  taskStatuses={taskStatuses[employee.name] || {}}
+                  subTasks={subTasks[employee.name] || {}}
+                  absences={absences[employee.name] || {}}
+                  onOpenModal={handleOpenModal}
+                  onStatusChange={handleStatusChange}
+                  onAbsenceToggle={handleAbsenceToggle}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  draggedCell={draggedCell}
+                />
+              ))}
+
+              {/* Externí zaměstnanci */}
+              {employees.filter(e => e.type === 'external').length > 0 && (
+                <tr className="bg-blue-50">
+                  <td colSpan={8} className="sticky-left sticky left-0 px-4 py-2 font-semibold text-gray-900 text-sm border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      Externí zaměstnanci
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {employees.filter(e => e.type === 'external').map((employee) => (
                 <EmployeeRow
                   key={employee.name}
                   employee={employee}
