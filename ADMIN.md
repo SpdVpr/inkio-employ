@@ -77,6 +77,23 @@ Migrace nahraje do Firebase tyto výchozí zaměstnance:
 
 > ⚠️ **Upozornění:** Smazání zaměstnance **nesmaže** jejich úkoly v rozvrhu!
 
+### 🔄 Seřazení zaměstnanců (Drag & Drop)
+
+Zaměstnance můžete seřadit pomocí drag and drop funkce:
+
+1. Najděte zaměstnance v seznamu
+2. Klikněte a táhněte zaměstnance (pomocí ikony **≡** na levé straně)
+3. Přetáhněte zaměstnance na novou pozici
+4. Uvolněte myš - zaměstnanec se přesune na novou pozici
+5. Pořadí se automaticky uloží do Firebase
+
+**Vizuální indikátory:**
+- Při tažení se zaměstnanec zobrazí s nižší průhledností (opacity)
+- Cílová pozice je zvýrazněna modrým rámečkem
+- Ikona **≡** (GripVertical) ukazuje, že je prvek tažitelný
+
+> 💡 **Tip:** Pořadí zaměstnanců se okamžitě projeví v hlavním rozvrhu na frontendu!
+
 ## 🎨 Typy zaměstnanců
 
 ### Interní zaměstnanci

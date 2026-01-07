@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { EmployeeDocument, subscribeToEmployees, saveEmployee, deleteEmployee } from '@/lib/employees';
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff } from 'lucide-react';
+import { EmployeeDocument, subscribeToEmployees, saveEmployee, deleteEmployee, reorderEmployees } from '@/lib/employees';
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, GripVertical } from 'lucide-react';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,7 +15,9 @@ export default function AdminPage() {
   const [editingEmployee, setEditingEmployee] = useState<EmployeeDocument | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  
+  const [draggedEmployee, setDraggedEmployee] = useState<EmployeeDocument | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   // Formulářové pole
   const [formData, setFormData] = useState({
     name: '',
@@ -142,6 +144,57 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error deleting employee:', error);
       alert('Chyba při mazání zaměstnance');
+    }
+  };
+
+  // Drag and drop funkce
+  const handleDragStart = (employee: EmployeeDocument) => {
+    setDraggedEmployee(employee);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (index: number) => {
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = async (targetIndex: number) => {
+    if (!draggedEmployee) return;
+
+    setDragOverIndex(null);
+
+    // Najdi index původního zaměstnance
+    const sourceIndex = employees.findIndex(e => e.id === draggedEmployee.id);
+    if (sourceIndex === targetIndex) {
+      setDraggedEmployee(null);
+      return;
+    }
+
+    // Vytvoř nové pole s přesunutým zaměstnancem
+    const newEmployees = [...employees];
+    const [movedEmployee] = newEmployees.splice(sourceIndex, 1);
+    newEmployees.splice(targetIndex, 0, movedEmployee);
+
+    // Aktualizuj lokálně
+    setEmployees(newEmployees);
+    setDraggedEmployee(null);
+
+    // Ulož nové pořadí do Firebase
+    try {
+      const employeeIds = newEmployees.map(e => e.id);
+      await reorderEmployees(employeeIds);
+    } catch (error) {
+      console.error('Error reordering employees:', error);
+      alert('Chyba při změně pořadí zaměstnanců');
+      // Vrať zpět původní pořadí
+      setEmployees(employees);
     }
   };
 
@@ -382,52 +435,68 @@ export default function AdminPage() {
                   Interní zaměstnanci
                 </h3>
                 <div className="space-y-2">
-                  {employees.filter(e => e.type === 'internal').map((employee) => (
-                    <div
-                      key={employee.id}
-                      className="flex items-center justify-between p-3 bg-white rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{employee.name}</div>
-                        <div className="text-sm text-gray-500">{employee.position || '—'}</div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Upravit"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        
-                        {deleteConfirm === employee.id ? (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleDelete(employee.id)}
-                              className="px-3 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors text-sm"
-                            >
-                              Potvrdit
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="px-3 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                            >
-                              Zrušit
-                            </button>
+                  {employees.filter(e => e.type === 'internal').map((employee, index) => {
+                    const allIndex = employees.findIndex(e => e.id === employee.id);
+                    return (
+                      <div
+                        key={employee.id}
+                        draggable
+                        onDragStart={() => handleDragStart(employee)}
+                        onDragOver={handleDragOver}
+                        onDragEnter={() => handleDragEnter(allIndex)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={() => handleDrop(allIndex)}
+                        className={`flex items-center justify-between p-3 bg-white rounded-lg cursor-move transition-all ${
+                          draggedEmployee?.id === employee.id ? 'opacity-50' : ''
+                        } ${
+                          dragOverIndex === allIndex ? 'ring-2 ring-blue-400 bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <GripVertical size={18} className="text-gray-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{employee.name}</div>
+                            <div className="text-sm text-gray-500">{employee.position || '—'}</div>
                           </div>
-                        ) : (
+                        </div>
+
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => setDeleteConfirm(employee.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Smazat"
+                            onClick={() => handleEdit(employee)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Upravit"
                           >
-                            <Trash2 size={18} />
+                            <Edit2 size={18} />
                           </button>
-                        )}
+
+                          {deleteConfirm === employee.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDelete(employee.id)}
+                                className="px-3 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                              >
+                                Potvrdit
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="px-3 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                              >
+                                Zrušit
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirm(employee.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Smazat"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -438,52 +507,68 @@ export default function AdminPage() {
                   Externí zaměstnanci
                 </h3>
                 <div className="space-y-2">
-                  {employees.filter(e => e.type === 'external').map((employee) => (
-                    <div
-                      key={employee.id}
-                      className="flex items-center justify-between p-3 bg-white rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{employee.name}</div>
-                        <div className="text-sm text-gray-500">{employee.position || '—'}</div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Upravit"
-                        >
-                          <Edit2 size={18} />
-                        </button>
-                        
-                        {deleteConfirm === employee.id ? (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleDelete(employee.id)}
-                              className="px-3 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors text-sm"
-                            >
-                              Potvrdit
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="px-3 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                            >
-                              Zrušit
-                            </button>
+                  {employees.filter(e => e.type === 'external').map((employee) => {
+                    const allIndex = employees.findIndex(e => e.id === employee.id);
+                    return (
+                      <div
+                        key={employee.id}
+                        draggable
+                        onDragStart={() => handleDragStart(employee)}
+                        onDragOver={handleDragOver}
+                        onDragEnter={() => handleDragEnter(allIndex)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={() => handleDrop(allIndex)}
+                        className={`flex items-center justify-between p-3 bg-white rounded-lg cursor-move transition-all ${
+                          draggedEmployee?.id === employee.id ? 'opacity-50' : ''
+                        } ${
+                          dragOverIndex === allIndex ? 'ring-2 ring-blue-400 bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <GripVertical size={18} className="text-gray-400 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{employee.name}</div>
+                            <div className="text-sm text-gray-500">{employee.position || '—'}</div>
                           </div>
-                        ) : (
+                        </div>
+
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => setDeleteConfirm(employee.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Smazat"
+                            onClick={() => handleEdit(employee)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Upravit"
                           >
-                            <Trash2 size={18} />
+                            <Edit2 size={18} />
                           </button>
-                        )}
+
+                          {deleteConfirm === employee.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDelete(employee.id)}
+                                className="px-3 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                              >
+                                Potvrdit
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="px-3 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                              >
+                                Zrušit
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirm(employee.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Smazat"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
