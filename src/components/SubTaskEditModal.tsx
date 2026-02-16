@@ -272,7 +272,7 @@ export default function SubTaskEditModal({
                     }`}
                 />
 
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
+                <div className="flex items-center gap-0.5">
                   {/* Duplicate */}
                   <button
                     onClick={() => duplicateSubTask(task)}
