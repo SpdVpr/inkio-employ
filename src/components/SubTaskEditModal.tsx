@@ -6,6 +6,7 @@ import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStat
 import { addDays } from 'date-fns';
 import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee } from '@/lib/database';
 import ProgressBar from './ProgressBar';
+import { showCompletionToast } from './CompletionToast';
 
 interface SubTaskEditModalProps {
   isOpen: boolean;
@@ -139,6 +140,13 @@ export default function SubTaskEditModal({
   };
 
   const toggleSubTaskStatus = (id: string) => {
+    const task = subTasks.find(t => t.id === id);
+    if (task) {
+      const newStatus = getNextStatus(task.status);
+      if (newStatus === 'completed') {
+        showCompletionToast(task.content);
+      }
+    }
     setSubTasks(prev => prev.map(task =>
       task.id === id ? { ...task, status: getNextStatus(task.status) } : task
     ));
