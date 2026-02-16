@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
-import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee } from '@/lib/database';
+import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee } from '@/lib/database';
 import ProgressBar from './ProgressBar';
 
 interface SubTaskEditModalProps {
@@ -34,6 +34,8 @@ export default function SubTaskEditModal({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
   const [movingTaskPosition, setMovingTaskPosition] = useState<{ top: number; right: number } | null>(null);
+  const [datePickerTaskId, setDatePickerTaskId] = useState<string | null>(null);
+  const [moveToDateValue, setMoveToDateValue] = useState<string>('');
   const moveMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -157,6 +159,24 @@ export default function SubTaskEditModal({
     }
   };
 
+  // ========== MOVE TO DATE ==========
+  const handleMoveToDate = async (task: SubTask, targetDate: string) => {
+    try {
+      const fromDateStr = formatDate(date);
+      if (fromDateStr === targetDate) return;
+      // Move to same employee but different date
+      await moveSubTaskCrossEmployee(employee.name, fromDateStr, employee.name, targetDate, task.id);
+      const newSubTasks = subTasks.filter(t => t.id !== task.id);
+      setSubTasks(newSubTasks);
+      setDatePickerTaskId(null);
+      const updatedSubTasks = newSubTasks.map((t, index) => ({ ...t, order: index }));
+      onSave(updatedSubTasks);
+    } catch (error) {
+      console.error('Error moving task to date:', error);
+      alert('Nepodařilo se přesunout úkol na jiné datum.');
+    }
+  };
+
   const handleDragStart = (index: number) => setDraggedIndex(index);
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
@@ -271,17 +291,30 @@ export default function SubTaskEditModal({
                     <CopyPlus size={14} />
                   </button>
 
-                  {/* Move */}
+                  {/* Move to employee */}
                   <button
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       setMovingTaskId(movingTaskId === task.id ? null : task.id);
                       setMovingTaskPosition({ top: rect.bottom, right: window.innerWidth - rect.right });
+                      setDatePickerTaskId(null);
                     }}
                     className="action-btn primary"
                     title="Přesunout na jiného zaměstnance"
                   >
                     <CornerUpRight size={14} />
+                  </button>
+
+                  {/* Move to date */}
+                  <button
+                    onClick={() => {
+                      setDatePickerTaskId(datePickerTaskId === task.id ? null : task.id);
+                      setMovingTaskId(null);
+                    }}
+                    className="action-btn primary"
+                    title="Přesunout na jiný den"
+                  >
+                    <CalendarDays size={14} />
                   </button>
 
                   {/* Delete */}
@@ -296,6 +329,41 @@ export default function SubTaskEditModal({
               </div>
             ))}
           </div>
+
+          {/* Date picker inline */}
+          {datePickerTaskId && (
+            <div className="mx-2 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 animate-fade-in">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Přesunout na datum
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={moveToDateValue}
+                  onChange={(e) => setMoveToDateValue(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                />
+                <button
+                  onClick={() => {
+                    if (moveToDateValue && moveToDateValue.length === 10) {
+                      const task = subTasks.find(t => t.id === datePickerTaskId);
+                      if (task) handleMoveToDate(task, moveToDateValue);
+                    }
+                  }}
+                  disabled={!moveToDateValue || moveToDateValue.length !== 10}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Přesunout
+                </button>
+                <button
+                  onClick={() => { setDatePickerTaskId(null); setMoveToDateValue(''); }}
+                  className="px-3 py-2 text-slate-400 hover:text-slate-600 text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Move menu portal */}
           {movingTaskId && movingTaskPosition && (

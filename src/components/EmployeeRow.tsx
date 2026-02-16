@@ -145,7 +145,7 @@ export default function EmployeeRow({
         const isAbsent = absences[dateStr] || false;
         const workLocation = workLocations[dateStr] || 'unset';
         const isMenuOpen = showStatusMenu === dateStr;
-        const isDragTarget = draggedCell && draggedCell.employeeName === employee.name && draggedCell.date !== dateStr;
+
 
         const completedCount = daySubTasks.filter(t => t.status === 'completed').length;
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -243,10 +243,6 @@ export default function EmployeeRow({
                 </div>
               )}
 
-              {/* Drag target */}
-              {isDragTarget && (
-                <div className="absolute inset-0 border-2 border-dashed border-indigo-300 bg-indigo-50/30 rounded-sm pointer-events-none z-20" />
-              )}
             </div>
 
             {/* Context menu */}

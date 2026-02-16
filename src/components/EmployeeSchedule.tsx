@@ -17,7 +17,7 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask, WorkLocation, updateWorkLocation, WeeklyStats, subscribeToWeeklyStats } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask, moveSubTaskCrossEmployee, WorkLocation, updateWorkLocation, WeeklyStats, subscribeToWeeklyStats } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 import { subscribeToEmployees, EmployeeDocument } from '@/lib/employees';
 import { Settings, Keyboard } from 'lucide-react';
@@ -244,10 +244,27 @@ export default function EmployeeSchedule() {
   const handleDrop = async (employee: Employee, date: Date) => {
     if (!draggedCell) return;
     const targetDateStr = formatDate(date);
-    if (draggedCell.employeeName !== employee.name) { setDraggedCell(null); return; }
-    if (draggedCell.date === targetDateStr) { setDraggedCell(null); return; }
+
+    // Same employee, same date — nothing to do
+    if (draggedCell.employeeName === employee.name && draggedCell.date === targetDateStr) {
+      setDraggedCell(null);
+      return;
+    }
+
     try {
-      await moveSubTask(employee.name, draggedCell.date, targetDateStr, draggedCell.subTaskId);
+      if (draggedCell.employeeName === employee.name) {
+        // Same employee, different date
+        await moveSubTask(employee.name, draggedCell.date, targetDateStr, draggedCell.subTaskId);
+      } else {
+        // Different employee (and possibly different date)
+        await moveSubTaskCrossEmployee(
+          draggedCell.employeeName,
+          draggedCell.date,
+          employee.name,
+          targetDateStr,
+          draggedCell.subTaskId
+        );
+      }
     } catch (error) {
       console.error('Error moving sub-task:', error);
     } finally {

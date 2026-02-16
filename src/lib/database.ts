@@ -363,6 +363,53 @@ export const moveSubTask = async (
   }
 };
 
+// Move a sub-task from one employee to another (and optionally a different date)
+export const moveSubTaskCrossEmployee = async (
+  fromEmployeeName: string,
+  fromDate: string,
+  toEmployeeName: string,
+  toDate: string,
+  subTaskId: string
+): Promise<void> => {
+  const fromTaskId = `${fromEmployeeName.toLowerCase()}_${fromDate}`;
+  const fromTaskRef = doc(db, COLLECTION_NAME, fromTaskId);
+
+  try {
+    const fromDocSnap = await getDoc(fromTaskRef);
+    if (!fromDocSnap.exists()) {
+      console.log('Source task does not exist');
+      return;
+    }
+
+    const sourceTask = fromDocSnap.data() as ScheduleTask;
+    const migrated = migrateTaskToSubTasks(sourceTask);
+    const sourceSubTasks = migrated.subTasks || [];
+
+    const subTaskToMove = sourceSubTasks.find(st => st.id === subTaskId);
+    if (!subTaskToMove) {
+      console.log('Sub-task not found');
+      return;
+    }
+
+    // Remove from source
+    const remaining = sourceSubTasks
+      .filter(st => st.id !== subTaskId)
+      .map((st, i) => ({ ...st, order: i }));
+    await saveSubTasks(fromEmployeeName, fromDate, remaining);
+
+    // Add to target
+    await addSubTaskToEmployee(toEmployeeName, toDate, {
+      ...subTaskToMove,
+      order: 999
+    });
+
+    console.log(`Sub-task ${subTaskId} moved from ${fromEmployeeName}@${fromDate} to ${toEmployeeName}@${toDate}`);
+  } catch (error) {
+    console.error('Error moving sub-task cross-employee:', error);
+    throw error;
+  }
+};
+
 // Update work location for a specific employee and date
 export const updateWorkLocation = async (
   employeeName: string,
