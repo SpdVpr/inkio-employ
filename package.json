@@ -1,0 +1,35 @@
+{
+  "name": "inkio-schedule",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "dev:prod": "cp .env.production .env.local && next dev --turbopack",
+    "build": "next build --turbopack",
+    "build:dev": "cp .env.local .env.local.bak && cp .env.production .env.local && next build --turbopack && mv .env.local.bak .env.local",
+    "start": "next start",
+    "lint": "eslint",
+    "env:dev": "echo 'Switching to development environment' && cp .env.example .env.local && echo 'Please update .env.local with your dev Firebase config'",
+    "env:prod": "echo 'Switching to production environment' && cp .env.production .env.local",
+    "env:status": "echo 'Current environment:' && grep NEXT_PUBLIC_FIREBASE_PROJECT_ID .env.local"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "firebase": "^12.2.1",
+    "lucide-react": "^0.542.0",
+    "next": "^16.0.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^16.0.8",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
