@@ -276,7 +276,8 @@ export default function EmployeeSchedule() {
   const getHeaderCellClasses = (date: Date) => {
     let classes = 'px-3 py-3 text-center font-medium text-xs border-r border-slate-100 min-w-[220px] w-[220px] align-top uppercase tracking-wider';
     if (isCurrentDay(date)) {
-      classes += ' bg-indigo-600 text-white';
+      classes += ' text-white';
+      classes = classes + ' bg-[#1764f3]';
     } else if (isWeekendDay(date)) {
       classes += ' bg-slate-50 text-slate-400';
     } else {
@@ -289,7 +290,7 @@ export default function EmployeeSchedule() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3"></div>
+          <div className="w-8 h-8 border-2 border-blue-200 rounded-full animate-spin mx-auto mb-3" style={{ borderTopColor: '#1764f3' }}></div>
           <p className="text-sm text-slate-400 font-medium">Načítání...</p>
         </div>
       </div>
@@ -306,9 +307,7 @@ export default function EmployeeSchedule() {
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xs font-bold">I</span>
-              </div>
+              <img src="/favicon-32x32.png" alt="Inkio" className="w-7 h-7 rounded-lg" />
               <div>
                 <h1 className="text-sm font-bold text-slate-900 tracking-tight leading-none">Inkio Schedule</h1>
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">Týdenní plánování úkolů</p>

@@ -158,7 +158,7 @@ export default function EmployeeRow({
         } else if (progress === 100) {
           cellBg = 'bg-emerald-50/40';
         } else if (isToday) {
-          cellBg = 'bg-indigo-50/30';
+          cellBg = 'bg-[#1764f3]/10';
         } else if (isWeekend) {
           cellBg = 'bg-slate-50/40';
         }
@@ -190,8 +190,8 @@ export default function EmployeeRow({
                 </div>
               )}
 
-              {/* Location toggle — always visible */}
-              {!isAbsent && (
+              {/* Location toggle — visible for internal employees on weekdays */}
+              {!isAbsent && !isWeekend && employee.type !== 'external' && (
                 <div className="flex-shrink-0 mb-2.5 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={(e) => { e.stopPropagation(); onWorkLocationChange(employee, date, workLocation === 'office' ? 'unset' : 'office'); }}
