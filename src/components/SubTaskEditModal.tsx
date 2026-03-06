@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
-import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee } from '@/lib/database';
+import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes } from '@/lib/database';
 import ProgressBar from './ProgressBar';
+import TimeInput from './TimeInput';
 import { showCompletionToast } from './CompletionToast';
 
 interface SubTaskEditModalProps {
@@ -75,7 +76,8 @@ export default function SubTaskEditModal({
           id: task.id || generateSubTaskId(),
           content: (task.content || '').trim(),
           status: task.status || 'pending',
-          order: index
+          order: index,
+          timeMinutes: typeof task.timeMinutes === 'number' ? task.timeMinutes : 0
         }));
       onSave(updatedSubTasks);
       onClose();
@@ -95,7 +97,8 @@ export default function SubTaskEditModal({
       id: generateSubTaskId(),
       content: '',
       status: 'pending',
-      order: subTasks.length
+      order: subTasks.length,
+      timeMinutes: 0
     };
     setSubTasks([...subTasks, newSubTask]);
   };
@@ -116,7 +119,8 @@ export default function SubTaskEditModal({
       id: generateSubTaskId(),
       content: task.content,
       status: 'pending',
-      order: subTasks.length
+      order: subTasks.length,
+      timeMinutes: task.timeMinutes || 0
     };
     setSubTasks(prev => [...prev, duplicate]);
   };
@@ -130,7 +134,8 @@ export default function SubTaskEditModal({
         id: generateSubTaskId(),
         content: task.content,
         status: 'pending',
-        order: 999 // will be re-ordered by addSubTaskToEmployee
+        order: 999, // will be re-ordered by addSubTaskToEmployee
+        timeMinutes: task.timeMinutes || 0
       };
       await addSubTaskToEmployee(employee.name, nextDateStr, newTask);
     } catch (error) {
@@ -202,6 +207,7 @@ export default function SubTaskEditModal({
 
   const progress = calculateProgress(subTasks);
   const completedCount = subTasks.filter(t => t.status === 'completed').length;
+  const totalTimeMinutes = subTasks.reduce((sum, t) => sum + (t.timeMinutes || 0), 0);
 
   if (!isOpen) return null;
 
@@ -243,7 +249,13 @@ export default function SubTaskEditModal({
           <div className="px-6 py-3 bg-slate-50/50 border-b border-slate-100">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-slate-500">Pokrok</span>
-              <span className="text-xs text-slate-400 font-medium tabular-nums">{completedCount}/{subTasks.length}</span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400 font-medium tabular-nums">
+                  <Clock size={12} className="text-slate-300" />
+                  {formatTimeMinutes(totalTimeMinutes)}
+                </span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">{completedCount}/{subTasks.length}</span>
+              </div>
             </div>
             <ProgressBar progress={progress} total={subTasks.length} completed={completedCount} showPercentage={true} showCounts={false} size="md" />
           </div>
@@ -276,9 +288,18 @@ export default function SubTaskEditModal({
                   value={task.content}
                   onChange={(e) => updateSubTask(task.id, { content: e.target.value })}
                   placeholder="Zadejte úkol..."
-                  className={`flex-1 px-1.5 py-0 border-none outline-none bg-transparent text-sm text-slate-800 font-medium placeholder:text-slate-300 ${task.status === 'completed' ? 'line-through text-slate-400' : ''
+                  className={`flex-1 px-1.5 py-0 border-none outline-none bg-transparent text-sm text-slate-800 font-medium placeholder:text-slate-300 min-w-0 ${task.status === 'completed' ? 'line-through text-slate-400' : ''
                     }`}
                 />
+
+                {/* Time input */}
+                <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <TimeInput
+                    timeMinutes={task.timeMinutes || 0}
+                    onChange={(minutes) => updateSubTask(task.id, { timeMinutes: minutes })}
+                    showWarning={task.status === 'completed'}
+                  />
+                </div>
 
                 <div className="flex items-center gap-0.5">
                   {/* Duplicate */}

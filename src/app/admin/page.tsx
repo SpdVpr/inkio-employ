@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { EmployeeDocument, subscribeToEmployees, saveEmployee, deleteEmployee, reorderEmployees } from '@/lib/employees';
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { MonthlyTimeStats, subscribeToMonthlyTimeStats, formatTimeMinutes } from '@/lib/database';
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, GripVertical, Clock, ChevronDown, ChevronUp, BarChart3, Calendar } from 'lucide-react';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,6 +18,15 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [draggedEmployee, setDraggedEmployee] = useState<EmployeeDocument | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
+  // Monthly time stats
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyTimeStats[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+  const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Formulářové pole
   const [formData, setFormData] = useState({
@@ -45,6 +55,19 @@ export default function AdminPage() {
 
     return () => unsubscribe();
   }, [isAuthenticated]);
+
+  // Subscribe to monthly time stats
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setLoadingStats(true);
+    const unsubscribe = subscribeToMonthlyTimeStats(selectedMonth.year, selectedMonth.month, (stats) => {
+      setMonthlyStats(stats);
+      setLoadingStats(false);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated, selectedMonth]);
 
   // Přihlášení
   const handleLogin = (e: React.FormEvent) => {
@@ -258,10 +281,10 @@ export default function AdminPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              🔧 Admin - Správa zaměstnanců
+              🔧 Admin panel
             </h1>
             <p className="text-gray-600 mt-1">
-              Přidávejte, upravujte a mažte zaměstnance
+              Přehled hodin a správa zaměstnanců
             </p>
           </div>
           <div className="flex gap-3">
@@ -278,6 +301,190 @@ export default function AdminPage() {
               Odhlásit se
             </button>
           </div>
+        </div>
+
+        {/* ===== PŘEHLED HODIN ZA MĚSÍC ===== */}
+        <div className="mb-8 bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-indigo-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <BarChart3 size={20} className="text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Přehled hodin</h2>
+                  <p className="text-sm text-gray-500">Celkové hodiny za měsíc se sčítáním stejných úkolů</p>
+                </div>
+              </div>
+
+              {/* Month selector */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const prev = new Date(selectedMonth.year, selectedMonth.month - 1);
+                    setSelectedMonth({ year: prev.getFullYear(), month: prev.getMonth() });
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-white rounded-lg transition-colors border border-gray-200 bg-white/50"
+                >
+                  ←
+                </button>
+                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-white rounded-lg border border-gray-200 min-w-[160px] justify-center">
+                  <Calendar size={14} className="text-indigo-500" />
+                  <span className="text-sm font-semibold text-gray-800">
+                    {new Date(selectedMonth.year, selectedMonth.month).toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = new Date(selectedMonth.year, selectedMonth.month + 1);
+                    setSelectedMonth({ year: next.getFullYear(), month: next.getMonth() });
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-white rounded-lg transition-colors border border-gray-200 bg-white/50"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {loadingStats ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+              <p className="text-sm text-gray-500">Načítání statistik...</p>
+            </div>
+          ) : employees.length === 0 ? (
+            <div className="p-8 text-center">
+              <Clock size={32} className="text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Nejsou žádní zaměstnanci. Přidejte je v sekci níže.</p>
+            </div>
+          ) : (() => {
+            const statsMap = new Map(monthlyStats.map(s => [s.employeeName, s]));
+            const allEmployeeStats = employees.map(emp => {
+              const stat = statsMap.get(emp.name);
+              return {
+                employeeName: emp.name,
+                type: emp.type,
+                totalMinutes: stat?.totalMinutes || 0,
+                taskBreakdown: stat?.taskBreakdown || []
+              };
+            });
+            const internalStats = allEmployeeStats.filter(e => e.type === 'internal').sort((a, b) => b.totalMinutes - a.totalMinutes);
+            const externalStats = allEmployeeStats.filter(e => e.type === 'external').sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+            const renderEmployeeRow = (stat: typeof allEmployeeStats[0]) => (
+                <div key={stat.employeeName} className="border-b border-gray-100 last:border-b-0">
+                  <button
+                    onClick={() => stat.taskBreakdown.length > 0 && setExpandedEmployee(expandedEmployee === stat.employeeName ? null : stat.employeeName)}
+                    className={`w-full grid grid-cols-[1fr_120px_120px] px-6 py-3 hover:bg-gray-50 transition-colors items-center text-left ${stat.taskBreakdown.length === 0 ? 'cursor-default' : ''}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {stat.taskBreakdown.length > 0 ? (
+                        expandedEmployee === stat.employeeName
+                          ? <ChevronUp size={14} className="text-gray-400" />
+                          : <ChevronDown size={14} className="text-gray-400" />
+                      ) : (
+                        <div className="w-3.5" />
+                      )}
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${stat.type === 'internal' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                      <span className={`font-semibold ${stat.totalMinutes > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{stat.employeeName}</span>
+                    </div>
+                    <span className={`text-right font-bold tabular-nums text-sm ${stat.totalMinutes > 0 ? 'text-indigo-600' : 'text-gray-300'}`}>
+                      {formatTimeMinutes(stat.totalMinutes)}
+                    </span>
+                    <span className={`text-right text-sm tabular-nums ${stat.taskBreakdown.length > 0 ? 'text-gray-500' : 'text-gray-300'}`}>
+                      {stat.taskBreakdown.length}
+                    </span>
+                  </button>
+
+                  {expandedEmployee === stat.employeeName && stat.taskBreakdown.length > 0 && (
+                    <div className="px-6 pb-4">
+                      <div className="ml-8 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="grid grid-cols-[1fr_100px_auto] px-4 py-2 bg-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          <span>Úkol</span>
+                          <span className="text-right">Celkem</span>
+                          <span className="text-right pl-4">Rozpad</span>
+                        </div>
+                        {stat.taskBreakdown.map((task, i) => (
+                          <div key={i} className="grid grid-cols-[1fr_100px_auto] px-4 py-2 border-t border-gray-100 items-start">
+                            <span className="text-sm text-gray-700 font-medium truncate" title={task.taskName}>
+                              {task.taskName}
+                            </span>
+                            <span className="text-right text-sm font-semibold text-gray-800 tabular-nums">
+                              {formatTimeMinutes(task.totalMinutes)}
+                            </span>
+                            <div className="text-right pl-4">
+                              {task.entries.length > 1 ? (
+                                <div className="flex flex-wrap gap-1 justify-end">
+                                  {task.entries.map((entry, j) => {
+                                    const d = new Date(entry.date + 'T00:00:00');
+                                    const dayStr = d.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+                                    return (
+                                      <span key={j} className="inline-flex items-center gap-0.5 text-[10px] text-gray-400 bg-white rounded px-1.5 py-0.5 border border-gray-100">
+                                        {dayStr} → {formatTimeMinutes(entry.minutes)}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : task.entries.length === 1 ? (
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(task.entries[0].date + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+            );
+
+            return (
+            <div>
+              <div className="grid grid-cols-[1fr_120px_120px] px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <span>Zaměstnanec</span>
+                <span className="text-right">Celkem hodin</span>
+                <span className="text-right">Úkolů</span>
+              </div>
+
+              {internalStats.length > 0 && (
+                <>
+                  <div className="px-6 py-1.5 bg-emerald-50/50 border-b border-emerald-100/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Interní tým</span>
+                      <span className="text-[10px] text-emerald-400 font-medium">{internalStats.length}</span>
+                    </div>
+                  </div>
+                  {internalStats.map(renderEmployeeRow)}
+                </>
+              )}
+
+              {externalStats.length > 0 && (
+                <>
+                  <div className="px-6 py-1.5 bg-blue-50/50 border-b border-blue-100/50 border-t border-t-gray-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400" />
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Externí tým</span>
+                      <span className="text-[10px] text-blue-400 font-medium">{externalStats.length}</span>
+                    </div>
+                  </div>
+                  {externalStats.map(renderEmployeeRow)}
+                </>
+              )}
+
+              <div className="grid grid-cols-[1fr_120px_120px] px-6 py-4 bg-gradient-to-r from-indigo-50 to-violet-50 border-t-2 border-indigo-200 items-center">
+                <span className="font-bold text-gray-900 text-sm">CELKEM FIRMA</span>
+                <span className="text-right font-bold text-indigo-700 text-lg tabular-nums">
+                  {formatTimeMinutes(allEmployeeStats.reduce((sum, s) => sum + s.totalMinutes, 0))}
+                </span>
+                <span className="text-right text-gray-500 text-sm tabular-nums">
+                  {allEmployeeStats.reduce((sum, s) => sum + s.taskBreakdown.length, 0)} úkolů
+                </span>
+              </div>
+            </div>
+            );
+          })()}
         </div>
 
         {/* Tlačítko přidat nového */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import WeekNavigation from './WeekNavigation';
 import EmployeeRow from './EmployeeRow';
+import DayView from './DayView';
 import TaskEditModal from './TaskEditModal';
 import SubTaskEditModal from './SubTaskEditModal';
 import {
@@ -20,8 +21,10 @@ import {
 import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask, moveSubTaskCrossEmployee, WorkLocation, updateWorkLocation, WeeklyStats, subscribeToWeeklyStats } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 import { subscribeToEmployees, EmployeeDocument } from '@/lib/employees';
-import { Settings, Keyboard } from 'lucide-react';
+import { Settings, Keyboard, CalendarDays, LayoutGrid, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { addDays, subDays } from 'date-fns';
 import CompletionToast from './CompletionToast';
+import TimeReminderBanner from './TimeReminderBanner';
 
 interface ModalState {
   isOpen: boolean;
@@ -55,6 +58,13 @@ export default function EmployeeSchedule() {
   const [loading, setLoading] = useState(true);
   const [draggedCell, setDraggedCell] = useState<DragData | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [viewMode, setViewMode] = useState<'week' | 'day'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('inkio_view_mode') as 'week' | 'day') || 'week';
+    }
+    return 'week';
+  });
+  const [selectedDay, setSelectedDay] = useState(new Date());
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     employee: null,
@@ -351,12 +361,77 @@ export default function EmployeeSchedule() {
           </div>
         )}
 
-        {/* Week navigation */}
-        <div className="mb-4">
-          <WeekNavigation currentDate={currentDate} onPreviousWeek={handlePreviousWeek} onNextWeek={handleNextWeek} />
+        {/* Time reminder banner */}
+        <TimeReminderBanner currentDate={currentDate} />
+
+        {/* View mode toggle + navigation */}
+        <div className="mb-4 flex items-center justify-between">
+          {/* Navigation - week or day */}
+          {viewMode === 'week' ? (
+            <WeekNavigation currentDate={currentDate} onPreviousWeek={handlePreviousWeek} onNextWeek={handleNextWeek} />
+          ) : (
+            <div className="flex items-center justify-between flex-1">
+              <button
+                onClick={() => setSelectedDay(subDays(selectedDay, 1))}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-200 hover:shadow-sm"
+              >
+                <ChevronLeft size={16} />
+                <span className="hidden sm:inline">Předchozí den</span>
+              </button>
+
+              <div className="text-center flex items-center gap-3">
+                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600">
+                  <Calendar size={18} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 tracking-tight">
+                    {formatDayName(selectedDay)} {formatDateDisplay(selectedDay)}
+                  </h2>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    {isCurrentDay(selectedDay) ? '📍 Dnes' : selectedDay.toLocaleDateString('cs-CZ', { year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedDay(addDays(selectedDay, 1))}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-200 hover:shadow-sm"
+              >
+                <span className="hidden sm:inline">Další den</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* View toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 ml-4">
+            <button
+              onClick={() => { setViewMode('week'); localStorage.setItem('inkio_view_mode', 'week'); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'week'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid size={13} />
+              Týden
+            </button>
+            <button
+              onClick={() => { setViewMode('day'); setSelectedDay(new Date()); localStorage.setItem('inkio_view_mode', 'day'); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'day'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <CalendarDays size={13} />
+              Den
+            </button>
+          </div>
         </div>
 
-        {/* Main table */}
+        {/* Week view - original table */}
+        {viewMode === 'week' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 table-with-sticky-header">
           <table className="w-full min-w-[1720px]">
             <thead>
@@ -446,6 +521,29 @@ export default function EmployeeSchedule() {
             </tbody>
           </table>
         </div>
+        )}
+
+        {/* Day view - card layout */}
+        {viewMode === 'day' && (
+          <DayView
+            employees={employees}
+            selectedDate={selectedDay}
+            tasks={tasks}
+            taskStatuses={taskStatuses}
+            subTasks={subTasks}
+            absences={absences}
+            workLocations={workLocations}
+            onOpenModal={handleOpenModal}
+            onStatusChange={handleStatusChange}
+            onAbsenceToggle={handleAbsenceToggle}
+            onWorkLocationChange={handleWorkLocationChange}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            draggedCell={draggedCell}
+          />
+        )}
 
         {/* Compact footer legend */}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-400 font-medium px-1">

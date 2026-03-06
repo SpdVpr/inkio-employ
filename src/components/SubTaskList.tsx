@@ -1,7 +1,8 @@
 'use client';
 
-import { SubTask, TaskStatus } from '@/lib/database';
+import { SubTask, TaskStatus, formatTimeMinutes } from '@/lib/database';
 import { getSubTaskIcon, truncateText, getNextStatus } from '@/lib/utils';
+import { Clock } from 'lucide-react';
 
 interface SubTaskListProps {
   subTasks: SubTask[];
@@ -71,6 +72,7 @@ export default function SubTaskList({
     <div className="space-y-0.5">
       {visibleTasks.map((task) => {
         const isDragging = draggedSubTaskId === task.id;
+        const timeMinutes = task.timeMinutes || 0;
 
         return (
           <div
@@ -101,8 +103,15 @@ export default function SubTaskList({
                 lineHeight: '1.3'
               }}
             >
-              {isCompact ? truncateText(task.content, 40) : task.content}
+              {isCompact ? truncateText(task.content, 32) : task.content}
             </span>
+            {/* Time badge - compact */}
+            {timeMinutes > 0 && (
+              <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] text-slate-400 font-medium tabular-nums bg-slate-50 rounded px-1 py-0.5 mt-0.5">
+                <Clock size={8} className="text-slate-300" />
+                {formatTimeMinutes(timeMinutes)}
+              </span>
+            )}
           </div>
         );
       })}

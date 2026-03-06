@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Employee, formatDate, getStatusIcon } from '@/lib/utils';
-import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation } from '@/lib/database';
+import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
 import { showCompletionToast } from './CompletionToast';
+import { Clock } from 'lucide-react';
 
 interface DragData {
   employeeName: string;
@@ -148,6 +149,7 @@ export default function EmployeeRow({
 
 
         const completedCount = daySubTasks.filter(t => t.status === 'completed').length;
+        const dailyTotalMinutes = daySubTasks.reduce((sum, t) => sum + (t.timeMinutes || 0), 0);
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isToday = new Date().toDateString() === date.toDateString();
 
@@ -232,6 +234,14 @@ export default function EmployeeRow({
               {/* Bottom: progress bar — only when there are tasks */}
               {daySubTasks.length > 0 && !isAbsent && (
                 <div className="flex-shrink-0 mt-auto pt-1">
+                  <div className="flex items-center justify-between mb-0.5">
+                    {dailyTotalMinutes > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400 font-medium tabular-nums">
+                        <Clock size={8} className="text-slate-300" />
+                        {formatTimeMinutes(dailyTotalMinutes)}
+                      </span>
+                    )}
+                  </div>
                   <ProgressBar
                     progress={progress}
                     total={daySubTasks.length}

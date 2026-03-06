@@ -21,6 +21,7 @@ export interface SubTask {
   content: string;
   status: TaskStatus;
   order: number;
+  timeMinutes: number; // Čas strávený na úkolu v minutách (default 0)
 }
 
 export interface ScheduleTask {
@@ -41,6 +42,22 @@ const COLLECTION_NAME = getCollectionName('schedule_tasks');
 // Utility funkce pro sub-úkoly
 export const generateSubTaskId = (): string => {
   return `subtask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Formátování minut na H:MM
+export const formatTimeMinutes = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${m.toString().padStart(2, '0')}`;
+};
+
+// Parsování H:MM řetězce na minuty
+export const parseTimeString = (timeStr: string): number => {
+  const parts = timeStr.split(':');
+  if (parts.length !== 2) return 0;
+  const hours = parseInt(parts[0], 10) || 0;
+  const mins = parseInt(parts[1], 10) || 0;
+  return Math.max(0, hours * 60 + Math.min(59, mins));
 };
 
 export const calculateOverallStatus = (subTasks: SubTask[]): TaskStatus => {
@@ -73,7 +90,8 @@ export const migrateTaskToSubTasks = (task: ScheduleTask): ScheduleTask => {
       id: generateSubTaskId(),
       content: task.taskContent,
       status: task.status,
-      order: 0
+      order: 0,
+      timeMinutes: 0
     };
 
     return {
@@ -149,7 +167,8 @@ const sanitizeSubTask = (subTask: SubTask): SubTask => {
     id: subTask.id || generateSubTaskId(),
     content: subTask.content || '',
     status: subTask.status || 'pending',
-    order: typeof subTask.order === 'number' ? subTask.order : 0
+    order: typeof subTask.order === 'number' ? subTask.order : 0,
+    timeMinutes: typeof subTask.timeMinutes === 'number' ? subTask.timeMinutes : 0
   };
 };
 
@@ -556,5 +575,109 @@ export const subscribeToWeeklyStats = (
     });
 
     callback(statsMap);
+  });
+};
+
+// ===== MONTHLY TIME STATS (admin přehled hodin) =====
+export interface MonthlyTimeStats {
+  employeeName: string;
+  totalMinutes: number;
+  taskBreakdown: { taskName: string; totalMinutes: number; entries: { date: string; minutes: number }[] }[];
+}
+
+export const subscribeToMonthlyTimeStats = (
+  year: number,
+  month: number, // 0-indexed (0 = January)
+  callback: (stats: MonthlyTimeStats[]) => void
+) => {
+  // Build date range for the month
+  const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where('taskDate', '>=', startDate),
+    where('taskDate', '<=', endDate)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const employeeMap: Record<string, { totalMinutes: number; tasks: Record<string, { totalMinutes: number; entries: { date: string; minutes: number }[] }> }> = {};
+
+    snapshot.forEach((doc) => {
+      const task = doc.data() as ScheduleTask;
+      const migrated = migrateTaskToSubTasks(task);
+      const subTasks = migrated.subTasks || [];
+
+      if (!employeeMap[task.employeeName]) {
+        employeeMap[task.employeeName] = { totalMinutes: 0, tasks: {} };
+      }
+
+      subTasks.forEach(st => {
+        const mins = st.timeMinutes || 0;
+        employeeMap[task.employeeName].totalMinutes += mins;
+
+        const taskName = st.content?.trim() || 'Bez názvu';
+        if (!employeeMap[task.employeeName].tasks[taskName]) {
+          employeeMap[task.employeeName].tasks[taskName] = { totalMinutes: 0, entries: [] };
+        }
+        employeeMap[task.employeeName].tasks[taskName].totalMinutes += mins;
+        if (mins > 0) {
+          employeeMap[task.employeeName].tasks[taskName].entries.push({ date: task.taskDate, minutes: mins });
+        }
+      });
+    });
+
+    const stats: MonthlyTimeStats[] = Object.entries(employeeMap).map(([name, data]) => ({
+      employeeName: name,
+      totalMinutes: data.totalMinutes,
+      taskBreakdown: Object.entries(data.tasks)
+        .filter(([, t]) => t.totalMinutes > 0)
+        .map(([taskName, t]) => ({
+          taskName,
+          totalMinutes: t.totalMinutes,
+          entries: t.entries.sort((a, b) => a.date.localeCompare(b.date))
+        }))
+        .sort((a, b) => b.totalMinutes - a.totalMinutes)
+    })).sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+    callback(stats);
+  });
+};
+
+// Count sub-tasks with 0 time that are completed (for reminder)
+export const subscribeToUnfilledTimeTasks = (
+  startDate: string,
+  endDate: string,
+  callback: (count: number, tasks: { employeeName: string; date: string; content: string }[]) => void
+) => {
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where('taskDate', '>=', startDate),
+    where('taskDate', '<=', endDate)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    let count = 0;
+    const unfilledTasks: { employeeName: string; date: string; content: string }[] = [];
+
+    snapshot.forEach((doc) => {
+      const task = doc.data() as ScheduleTask;
+      const migrated = migrateTaskToSubTasks(task);
+      const subTasks = migrated.subTasks || [];
+
+      subTasks.forEach(st => {
+        if (st.status === 'completed' && (!st.timeMinutes || st.timeMinutes === 0)) {
+          count++;
+          unfilledTasks.push({
+            employeeName: task.employeeName,
+            date: task.taskDate,
+            content: st.content
+          });
+        }
+      });
+    });
+
+    callback(count, unfilledTasks);
   });
 };
