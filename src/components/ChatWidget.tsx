@@ -6,13 +6,14 @@ import { UserProfile } from '@/lib/auth';
 import {
   subscribeToChats, subscribeToMessages, sendMessage,
   createDirectChat, markMessagesAsRead,
-  getUnreadCount, Chat, ChatMessage
+  getUnreadCount, Chat, ChatMessage,
+  toggleReaction, CHAT_EMOJIS
 } from '@/lib/chat';
 import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   MessageSquare, Send, ArrowLeft, X, Plus,
-  Search, Circle, Hash, Minus
+  Search, Circle, Hash, Minus, SmilePlus, ThumbsUp
 } from 'lucide-react';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
 
@@ -30,6 +31,13 @@ export default function ChatWidget() {
   const { totalUnread, unreadPerChat } = useChatNotificationContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user || !activeChat) return;
+    setEmojiPickerMsgId(null);
+    await toggleReaction(activeChat, messageId, emoji, user.uid);
+  };
 
   // Subscribe to chats
   useEffect(() => {
@@ -217,15 +225,62 @@ export default function ChatWidget() {
                   ) : (
                     messages.map((msg) => {
                       const isOwn = msg.senderId === user?.uid;
+                      const reactions = msg.reactions || {};
+                      const hasReactions = Object.keys(reactions).length > 0;
                       return (
                         <div key={msg.id} className={`chat-widget-msg ${isOwn ? 'own' : 'other'}`}>
-                          <div className={`chat-widget-msg-bubble ${isOwn ? 'own' : 'other'}`}>
-                            {!isOwn && activeChatData?.type === 'group' && (
-                              <span className="chat-widget-msg-sender">{msg.senderName}</span>
+                          <div className="chat-bubble-wrapper">
+                            <div className={`chat-widget-msg-bubble ${isOwn ? 'own' : 'other'}`}>
+                              {!isOwn && activeChatData?.type === 'group' && (
+                                <span className="chat-widget-msg-sender">{msg.senderName}</span>
+                              )}
+                              <p>{msg.content}</p>
+                              <span className="chat-widget-msg-time">{msg.createdAt ? formatTime(msg.createdAt) : '...'}</span>
+                            </div>
+                            {/* Quick reaction triggers */}
+                            <div className={`chat-reaction-trigger widget ${isOwn ? 'own' : 'other'}`}>
+                              <button
+                                className="chat-reaction-btn-quick"
+                                onClick={() => handleReaction(msg.id, '\u{1F44D}')}
+                                title="L\u00edb\u00ed se mi"
+                              >
+                                <ThumbsUp size={10} />
+                              </button>
+                              <button
+                                className="chat-reaction-btn-quick"
+                                onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                                title="Reakce"
+                              >
+                                <SmilePlus size={10} />
+                              </button>
+                            </div>
+                            {emojiPickerMsgId === msg.id && (
+                              <div className={`chat-emoji-picker widget ${isOwn ? 'own' : 'other'}`}>
+                                {CHAT_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    className="chat-emoji-btn"
+                                    onClick={() => handleReaction(msg.id, emoji)}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
                             )}
-                            <p>{msg.content}</p>
-                            <span className="chat-widget-msg-time">{msg.createdAt ? formatTime(msg.createdAt) : '...'}</span>
                           </div>
+                          {hasReactions && (
+                            <div className={`chat-reactions-row ${isOwn ? 'own' : 'other'}`}>
+                              {Object.entries(reactions).map(([emoji, uids]) => (
+                                <button
+                                  key={emoji}
+                                  className={`chat-reaction-badge ${uids.includes(user?.uid || '') ? 'active' : ''}`}
+                                  onClick={() => handleReaction(msg.id, emoji)}
+                                >
+                                  {emoji} {uids.length > 1 && <span>{uids.length}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })

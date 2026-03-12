@@ -1,7 +1,7 @@
 import {
   collection, doc, addDoc, updateDoc, onSnapshot,
   query, where, orderBy, serverTimestamp, Timestamp,
-  getDocs, setDoc, arrayUnion, limit
+  getDocs, setDoc, arrayUnion, arrayRemove, limit, getDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -19,6 +19,9 @@ export interface Chat {
   createdBy: string;
 }
 
+// Reaction on a message: emoji -> list of user UIDs
+export type MessageReactions = Record<string, string[]>;
+
 // Individual message
 export interface ChatMessage {
   id: string;
@@ -28,6 +31,7 @@ export interface ChatMessage {
   content: string;
   createdAt: Timestamp;
   readBy: string[]; // UIDs who have read this message
+  reactions?: MessageReactions; // emoji -> UIDs
 }
 
 // Subscribe to all chats for a user
@@ -186,4 +190,39 @@ export const getUnreadCount = (messages: ChatMessage[], userId: string): number 
   return messages.filter(m => 
     m.senderId !== userId && !m.readBy?.includes(userId)
   ).length;
+};
+
+// Available emoji reactions
+export const CHAT_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '👏', '🎉'];
+
+// Toggle a reaction on a message
+export const toggleReaction = async (
+  chatId: string,
+  messageId: string,
+  emoji: string,
+  userId: string
+) => {
+  const msgRef = doc(db, 'chats', chatId, 'messages', messageId);
+  const msgSnap = await getDoc(msgRef);
+  if (!msgSnap.exists()) return;
+
+  const data = msgSnap.data();
+  const reactions: MessageReactions = data.reactions || {};
+  const usersForEmoji = reactions[emoji] || [];
+
+  if (usersForEmoji.includes(userId)) {
+    // Remove reaction
+    const updated = usersForEmoji.filter(uid => uid !== userId);
+    if (updated.length === 0) {
+      // Remove the emoji key entirely
+      const newReactions = { ...reactions };
+      delete newReactions[emoji];
+      await updateDoc(msgRef, { reactions: newReactions });
+    } else {
+      await updateDoc(msgRef, { [`reactions.${emoji}`]: updated });
+    }
+  } else {
+    // Add reaction
+    await updateDoc(msgRef, { [`reactions.${emoji}`]: arrayUnion(userId) });
+  }
 };

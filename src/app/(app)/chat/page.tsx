@@ -6,13 +6,14 @@ import { UserProfile } from '@/lib/auth';
 import {
   subscribeToChats, subscribeToMessages, sendMessage,
   createDirectChat, createGroupChat, markMessagesAsRead,
-  getUnreadCount, Chat, ChatMessage
+  getUnreadCount, Chat, ChatMessage,
+  toggleReaction, CHAT_EMOJIS
 } from '@/lib/chat';
 import { collection, onSnapshot, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   MessageSquare, Send, Plus, Users, User, Search,
-  Hash, Circle, ArrowLeft, X, Check
+  Hash, Circle, ArrowLeft, X, Check, SmilePlus, ThumbsUp
 } from 'lucide-react';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
 
@@ -32,6 +33,13 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { unreadPerChat } = useChatNotificationContext();
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user || !activeChat) return;
+    setEmojiPickerMsgId(null);
+    await toggleReaction(activeChat, messageId, emoji, user.uid);
+  };
 
   // Subscribe to chats
   useEffect(() => {
@@ -254,24 +262,73 @@ export default function ChatPage() {
                   <p>Začněte konverzaci 👋</p>
                 </div>
               ) : (
-                messages.map((msg, i) => {
-                  const isOwn = msg.senderId === user?.uid;
-                  const showName = !isOwn && activeChatData.type === 'group' &&
-                    (i === 0 || messages[i - 1].senderId !== msg.senderId);
-                  return (
-                    <div key={msg.id} className={`chat-message ${isOwn ? 'own' : 'other'}`}>
-                      {showName && (
-                        <span className="chat-message-sender">{msg.senderName}</span>
-                      )}
-                      <div className={`chat-bubble ${isOwn ? 'own' : 'other'}`}>
-                        <p>{msg.content}</p>
-                        <span className="chat-bubble-time">
-                          {msg.createdAt ? formatTime(msg.createdAt) : '...'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
+                    messages.map((msg, i) => {
+                      const isOwn = msg.senderId === user?.uid;
+                      const showName = !isOwn && activeChatData.type === 'group' &&
+                        (i === 0 || messages[i - 1].senderId !== msg.senderId);
+                      const reactions = msg.reactions || {};
+                      const hasReactions = Object.keys(reactions).length > 0;
+                      return (
+                        <div key={msg.id} className={`chat-message ${isOwn ? 'own' : 'other'}`}>
+                          {showName && (
+                            <span className="chat-message-sender">{msg.senderName}</span>
+                          )}
+                          <div className="chat-bubble-wrapper">
+                            <div className={`chat-bubble ${isOwn ? 'own' : 'other'}`}>
+                              <p>{msg.content}</p>
+                              <span className="chat-bubble-time">
+                                {msg.createdAt ? formatTime(msg.createdAt) : '...'}
+                              </span>
+                            </div>
+                            {/* Quick reaction button */}
+                            <div className={`chat-reaction-trigger ${isOwn ? 'own' : 'other'}`}>
+                              <button
+                                className="chat-reaction-btn-quick"
+                                onClick={() => handleReaction(msg.id, '\u{1F44D}')}
+                                title="Líbí se mi"
+                              >
+                                <ThumbsUp size={12} />
+                              </button>
+                              <button
+                                className="chat-reaction-btn-quick"
+                                onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                                title="Reakce"
+                              >
+                                <SmilePlus size={12} />
+                              </button>
+                            </div>
+                            {/* Emoji picker */}
+                            {emojiPickerMsgId === msg.id && (
+                              <div className={`chat-emoji-picker ${isOwn ? 'own' : 'other'}`}>
+                                {CHAT_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    className="chat-emoji-btn"
+                                    onClick={() => handleReaction(msg.id, emoji)}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {/* Existing reactions */}
+                          {hasReactions && (
+                            <div className={`chat-reactions-row ${isOwn ? 'own' : 'other'}`}>
+                              {Object.entries(reactions).map(([emoji, uids]) => (
+                                <button
+                                  key={emoji}
+                                  className={`chat-reaction-badge ${uids.includes(user?.uid || '') ? 'active' : ''}`}
+                                  onClick={() => handleReaction(msg.id, emoji)}
+                                >
+                                  {emoji} {uids.length > 1 && <span>{uids.length}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
               )}
               <div ref={messagesEndRef} />
             </div>

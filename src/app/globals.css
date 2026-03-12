@@ -1107,6 +1107,153 @@ body {
   text-align: right;
 }
 
+/* Chat reactions */
+.chat-bubble-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-reaction-trigger {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chat-bubble-wrapper:hover .chat-reaction-trigger {
+  opacity: 1;
+}
+
+.chat-reaction-trigger.own {
+  order: -1;
+}
+
+.chat-reaction-btn-quick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.chat-reaction-btn-quick:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+  transform: scale(1.15);
+}
+
+.chat-reaction-trigger.widget .chat-reaction-btn-quick {
+  width: 20px;
+  height: 20px;
+}
+
+.chat-emoji-picker {
+  position: absolute;
+  top: 100%;
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 10;
+  margin-top: 4px;
+}
+
+.chat-emoji-picker.own {
+  right: 0;
+}
+
+.chat-emoji-picker.other {
+  left: 0;
+}
+
+.chat-emoji-picker.widget {
+  padding: 4px 6px;
+}
+
+.chat-emoji-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.chat-emoji-picker.widget .chat-emoji-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
+.chat-emoji-btn:hover {
+  background: var(--surface-hover);
+  transform: scale(1.2);
+}
+
+.chat-reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.chat-reactions-row.own {
+  justify-content: flex-end;
+}
+
+.chat-reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.2;
+  transition: all 0.15s ease;
+}
+
+.chat-reaction-badge span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.chat-reaction-badge:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.chat-reaction-badge.active {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.chat-reaction-badge.active span {
+  color: var(--primary);
+}
+
 /* Chat input */
 .chat-input-area {
   display: flex;

@@ -13,7 +13,8 @@ import {
 } from 'recharts';
 import {
   Sun, Moon, LogOut, Mail, Briefcase, Shield, Clock,
-  TrendingUp, Calendar, CheckCircle, ChevronLeft, ChevronRight, Link2Off, UserCheck
+  TrendingUp, Calendar, CheckCircle, ChevronLeft, ChevronRight, Link2Off, UserCheck,
+  Pencil, Check, X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -26,6 +27,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [unpairing, setUnpairing] = useState(false);
   const [pairedEmployee, setPairedEmployee] = useState<EmployeeDocument | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -156,6 +160,46 @@ export default function ProfilePage() {
     }
   };
 
+  const handleStartEditName = () => {
+    setNameValue(displayName);
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!user || !nameValue.trim() || nameValue.trim() === displayName) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const newName = nameValue.trim();
+      // 1. Update Firestore user profile
+      await updateUserProfile(user.uid, { displayName: newName });
+      // 2. Update Firebase Auth displayName
+      const { updateProfile } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: newName });
+      }
+      // 3. Update matching employee document if exists
+      const employees = await getEmployees();
+      const match = employees.find(e => e.name === displayName);
+      if (match) {
+        await saveEmployee({ ...match, name: newName });
+      }
+      setEditingName(false);
+    } catch (err) {
+      console.error('Error saving name:', err);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSaveName();
+    if (e.key === 'Escape') setEditingName(false);
+  };
+
   if (!user) return null;
 
   // Determine display info — use userProfile if available, otherwise fallback to Firebase auth user
@@ -176,9 +220,59 @@ export default function ProfilePage() {
             onSelect={handleAvatarChange}
           />
           <div className="flex-1">
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {displayName}
-            </h1>
+            <div className="flex items-center gap-2">
+              {editingName ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    onKeyDown={handleNameKeyDown}
+                    className="form-input"
+                    style={{ fontSize: 16, fontWeight: 700, padding: '6px 12px' }}
+                    autoFocus
+                    disabled={savingName}
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={savingName || !nameValue.trim()}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                    style={{ background: '#22c55e', color: '#fff' }}
+                    title="Uložit"
+                  >
+                    {savingName ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+                    style={{ background: 'var(--surface-hover)', color: 'var(--text-muted)' }}
+                    title="Zrušit"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {displayName}
+                  </h1>
+                  <button
+                    onClick={handleStartEditName}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    title="Upravit jméno"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-3 mt-1.5">
               <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                 <Mail size={12} /> {displayEmail}
