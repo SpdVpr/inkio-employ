@@ -31,7 +31,7 @@ export default function WeekNavigation({
       </button>
 
       <div className="text-center flex items-center gap-3">
-        <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600">
+        <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600">
           <Calendar size={18} />
         </div>
         <div>

@@ -309,6 +309,7 @@ export default function EmployeeSchedule() {
 
   const internalEmployees = employees.filter(e => e.type === 'internal');
   const externalEmployees = employees.filter(e => e.type === 'external');
+  // Unassigned employees are not shown in the calendar — they need to be assigned via Admin first
 
   return (
     <div className="min-h-screen bg-slate-50/80">
@@ -352,12 +353,12 @@ export default function EmployeeSchedule() {
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 py-4">
         {/* Help banner */}
         {showHelp && (
-          <div className="mb-4 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 flex items-start gap-3 animate-fade-in">
+          <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3 animate-fade-in">
             <span className="text-sm">💡</span>
-            <div className="flex-1 text-xs text-indigo-700 space-y-1">
+            <div className="flex-1 text-xs text-blue-700 space-y-1">
               <p><strong>Klik</strong> na buňku → editace úkolů · <strong>Pravý klik</strong> → status + lokace · <strong>Drag</strong> → přesun úkolů mezi dny</p>
             </div>
-            <button onClick={() => setShowHelp(false)} className="text-indigo-400 hover:text-indigo-600 text-xs font-bold">✕</button>
+            <button onClick={() => setShowHelp(false)} className="text-blue-400 hover:text-blue-600 text-xs font-bold">✕</button>
           </div>
         )}
 
@@ -380,7 +381,7 @@ export default function EmployeeSchedule() {
               </button>
 
               <div className="text-center flex items-center gap-3">
-                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600">
+                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 text-blue-600">
                   <Calendar size={18} />
                 </div>
                 <div>

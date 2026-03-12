@@ -22,6 +22,7 @@ export interface SubTask {
   status: TaskStatus;
   order: number;
   timeMinutes: number; // Čas strávený na úkolu v minutách (default 0)
+  companyId?: string;   // ID firmy (štítek)
 }
 
 export interface ScheduleTask {
@@ -168,7 +169,8 @@ const sanitizeSubTask = (subTask: SubTask): SubTask => {
     content: subTask.content || '',
     status: subTask.status || 'pending',
     order: typeof subTask.order === 'number' ? subTask.order : 0,
-    timeMinutes: typeof subTask.timeMinutes === 'number' ? subTask.timeMinutes : 0
+    timeMinutes: typeof subTask.timeMinutes === 'number' ? subTask.timeMinutes : 0,
+    ...(subTask.companyId ? { companyId: subTask.companyId } : {})
   };
 };
 
@@ -584,6 +586,173 @@ export interface MonthlyTimeStats {
   totalMinutes: number;
   taskBreakdown: { taskName: string; totalMinutes: number; entries: { date: string; minutes: number }[] }[];
 }
+
+// ===== MONTHLY EMPLOYEE STATS (statistics page) =====
+export interface MonthlyEmployeeStats {
+  employeeName: string;
+  totalHours: number;
+  totalTasks: number;
+  completedTasks: number;
+  daysWorked: number;
+  officeDays: number;
+  homeofficeDays: number;
+}
+
+export const getMonthlyEmployeeStats = (
+  year: number,
+  month: number // 1-indexed (1 = January)
+): Promise<MonthlyEmployeeStats[]> => {
+  return new Promise((resolve) => {
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('taskDate', '>=', startDate),
+      where('taskDate', '<=', endDate)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const employeeMap: Record<string, {
+        totalMinutes: number;
+        totalTasks: number;
+        completedTasks: number;
+        daysWorked: Set<string>;
+        officeDays: Set<string>;
+        homeofficeDays: Set<string>;
+      }> = {};
+
+      snapshot.forEach((d) => {
+        const task = d.data() as ScheduleTask;
+        const migrated = migrateTaskToSubTasks(task);
+        const subTasks = migrated.subTasks || [];
+
+        if (!employeeMap[task.employeeName]) {
+          employeeMap[task.employeeName] = {
+            totalMinutes: 0, totalTasks: 0, completedTasks: 0,
+            daysWorked: new Set(),
+            officeDays: new Set(),
+            homeofficeDays: new Set(),
+          };
+        }
+
+        if (subTasks.length > 0) {
+          employeeMap[task.employeeName].daysWorked.add(task.taskDate);
+        }
+
+        // Track work location
+        if (task.workLocation === 'office') {
+          employeeMap[task.employeeName].officeDays.add(task.taskDate);
+        } else if (task.workLocation === 'homeoffice') {
+          employeeMap[task.employeeName].homeofficeDays.add(task.taskDate);
+        }
+
+        subTasks.forEach(st => {
+          employeeMap[task.employeeName].totalTasks++;
+          if (st.status === 'completed') {
+            employeeMap[task.employeeName].completedTasks++;
+          }
+          employeeMap[task.employeeName].totalMinutes += st.timeMinutes || 0;
+        });
+      });
+
+      const stats: MonthlyEmployeeStats[] = Object.entries(employeeMap).map(([name, data]) => ({
+        employeeName: name,
+        totalHours: data.totalMinutes / 60,
+        totalTasks: data.totalTasks,
+        completedTasks: data.completedTasks,
+        daysWorked: data.daysWorked.size,
+        officeDays: data.officeDays.size,
+        homeofficeDays: data.homeofficeDays.size,
+      }));
+
+      unsubscribe();
+      resolve(stats);
+    });
+  });
+};
+
+// Company-level stats for a given month
+export interface CompanyTaskDetail {
+  content: string;
+  employeeName: string;
+  date: string;
+  timeMinutes: number;
+  status: TaskStatus;
+}
+
+export interface MonthlyCompanyStats {
+  companyId: string;
+  totalHours: number;
+  totalTasks: number;
+  completedTasks: number;
+  employeeNames: string[];
+  tasks: CompanyTaskDetail[];
+}
+
+export const getMonthlyCompanyStats = (
+  year: number,
+  month: number // 1-indexed
+): Promise<MonthlyCompanyStats[]> => {
+  return new Promise((resolve) => {
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('taskDate', '>=', startDate),
+      where('taskDate', '<=', endDate)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const companyMap: Record<string, {
+        totalMinutes: number;
+        totalTasks: number;
+        completedTasks: number;
+        employees: Set<string>;
+        tasks: CompanyTaskDetail[];
+      }> = {};
+
+      snapshot.forEach((d) => {
+        const task = d.data() as ScheduleTask;
+        const migrated = migrateTaskToSubTasks(task);
+        const subTasks = migrated.subTasks || [];
+
+        subTasks.forEach(st => {
+          const cId = st.companyId || '__unassigned__';
+          if (!companyMap[cId]) {
+            companyMap[cId] = { totalMinutes: 0, totalTasks: 0, completedTasks: 0, employees: new Set(), tasks: [] };
+          }
+          companyMap[cId].totalTasks++;
+          if (st.status === 'completed') companyMap[cId].completedTasks++;
+          companyMap[cId].totalMinutes += st.timeMinutes || 0;
+          companyMap[cId].employees.add(task.employeeName);
+          companyMap[cId].tasks.push({
+            content: st.content,
+            employeeName: task.employeeName,
+            date: task.taskDate,
+            timeMinutes: st.timeMinutes || 0,
+            status: st.status,
+          });
+        });
+      });
+
+      const stats: MonthlyCompanyStats[] = Object.entries(companyMap).map(([id, data]) => ({
+        companyId: id,
+        totalHours: data.totalMinutes / 60,
+        totalTasks: data.totalTasks,
+        completedTasks: data.completedTasks,
+        employeeNames: Array.from(data.employees),
+        tasks: data.tasks.sort((a, b) => a.date.localeCompare(b.date)),
+      }));
+
+      unsubscribe();
+      resolve(stats);
+    });
+  });
+};
 
 export const subscribeToMonthlyTimeStats = (
   year: number,

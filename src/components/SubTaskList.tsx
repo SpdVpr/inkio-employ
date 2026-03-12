@@ -80,7 +80,7 @@ export default function SubTaskList({
             draggable={!!onDragStart}
             onDragStart={(e) => handleDragStart(e, task)}
             onDragEnd={handleDragEnd}
-            className={`flex items-start gap-1.5 text-xs group/subtask hover:bg-slate-50 rounded px-1 py-0.5 transition-colors min-h-[18px] ${isDragging ? 'opacity-30' : ''
+            className={`flex items-start gap-1.5 text-sm group/subtask hover:bg-slate-50 rounded px-1 py-0.5 transition-colors min-h-[18px] ${isDragging ? 'opacity-30' : ''
               }`}
           >
             <button
@@ -100,10 +100,14 @@ export default function SubTaskList({
               style={{
                 wordBreak: 'break-word',
                 hyphens: 'auto',
-                lineHeight: '1.3'
+                lineHeight: '1.3',
+                display: '-webkit-box',
+                WebkitLineClamp: isCompact ? 2 : undefined,
+                WebkitBoxOrient: 'vertical',
+                overflow: isCompact ? 'hidden' : undefined,
               }}
             >
-              {isCompact ? truncateText(task.content, 32) : task.content}
+              {task.content}
             </span>
             {/* Time badge - compact */}
             {timeMinutes > 0 && (

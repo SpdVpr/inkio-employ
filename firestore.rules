@@ -1,28 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Úkoly v rozvrhu - production
+    // Users
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Schedule tasks
     match /schedule_tasks/{document} {
       allow read: if true;
-      allow write: if true; // Pro produkci zvažte omezení: if request.auth != null
+      allow write: if true;
     }
-    
-    // Úkoly v rozvrhu - development
     match /schedule_tasks_dev/{document} {
       allow read: if true;
       allow write: if true;
     }
-    
-    // Zaměstnanci - production
+
+    // Employees
     match /employees/{document} {
       allow read: if true;
-      allow write: if true; // Pro produkci zvažte omezení: if request.auth != null
+      allow write: if true;
     }
-    
-    // Zaměstnanci - development
     match /employees_dev/{document} {
       allow read: if true;
       allow write: if true;
+    }
+
+    // Companies
+    match /companies/{document} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Chats
+    match /chats/{chatId} {
+      allow read: if true;
+      allow write: if true;
+      match /messages/{messageId} {
+        allow read: if true;
+        allow write: if true;
+      }
     }
   }
 }

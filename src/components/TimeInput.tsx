@@ -74,7 +74,7 @@ export default function TimeInput({ timeMinutes, onChange, compact = false, show
     <div
       className={`inline-flex items-center gap-1.5 rounded-lg transition-all cursor-pointer ${
         isEditing
-          ? 'ring-2 ring-indigo-300 bg-white'
+          ? 'ring-2 ring-blue-300 bg-white'
           : warningActive
             ? 'bg-amber-50 border border-amber-200 hover:border-amber-300'
             : 'bg-slate-50 border border-slate-200 hover:border-slate-300'
@@ -87,7 +87,7 @@ export default function TimeInput({ timeMinutes, onChange, compact = false, show
       <Clock
         size={14}
         className={`ml-2 flex-shrink-0 ${
-          warningActive ? 'text-amber-400' : isEditing ? 'text-indigo-400' : 'text-slate-400'
+          warningActive ? 'text-amber-400' : isEditing ? 'text-blue-400' : 'text-slate-400'
         }`}
       />
 

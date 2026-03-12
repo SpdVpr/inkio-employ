@@ -5,7 +5,9 @@ import { TaskStatus, SubTask } from './database';
 export interface Employee {
   name: string;
   position: string;
-  type: 'internal' | 'external';
+  type: 'internal' | 'external' | 'unassigned';
+  avatarId?: number;   // Local avatar file ID (1–95)
+  hourlyRate?: number; // Hodinová sazba v Kč
 }
 
 // Výchozí seznam zaměstnanců (fallback pro případ selhání Firebase)

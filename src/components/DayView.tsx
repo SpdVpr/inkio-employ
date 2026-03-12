@@ -4,7 +4,7 @@ import { Employee, formatDate, formatDayName, formatDateDisplay } from '@/lib/ut
 import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
-import { showCompletionToast } from './CompletionToast';
+import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
 import { Clock } from 'lucide-react';
 
 interface DayViewProps {
@@ -52,7 +52,13 @@ export default function DayView({
     try {
       await updateSubTaskStatus(employeeName, dateStr, subTaskId, newStatus);
       if (newStatus === 'completed') {
-        showCompletionToast('Úkol dokončen! 🎉');
+        // Find the task to get its name and check time
+        const empSubTasks = subTasks[employeeName]?.[dateStr] || [];
+        const task = empSubTasks.find(t => t.id === subTaskId);
+        showCompletionToast(task?.content || 'Úkol dokončen! 🎉');
+        if (task && !task.timeMinutes) {
+          setTimeout(() => showTimeWarningToast(task.content), 400);
+        }
       }
     } catch (error) {
       console.error('Error updating sub-task status:', error);
@@ -75,7 +81,7 @@ export default function DayView({
           isAbsent
             ? 'border-red-200 bg-red-50/30'
             : isDragTarget
-              ? 'border-indigo-300 ring-1 ring-indigo-200'
+              ? 'border-blue-300 ring-1 ring-blue-200'
               : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
         }`}
         onDragOver={(e) => { e.preventDefault(); onDragOver(e); }}
@@ -120,8 +126,8 @@ export default function DayView({
               onClick={(e) => { e.stopPropagation(); onWorkLocationChange(employee, selectedDate, workLocation === 'homeoffice' ? 'unset' : 'homeoffice'); }}
               className={`flex-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border ${
                 workLocation === 'homeoffice'
-                  ? 'bg-violet-100 text-violet-700 border-violet-300'
-                  : 'bg-white text-slate-400 border-slate-200 hover:border-violet-300 hover:text-violet-500'
+                  ? 'bg-blue-100 text-blue-700 border-blue-300'
+                  : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300 hover:text-blue-500'
               }`}
             >
               🏠 Home

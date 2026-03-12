@@ -3,20 +3,25 @@
 import { useState, useEffect } from 'react';
 import { Clock, X, AlertTriangle } from 'lucide-react';
 import { subscribeToUnfilledTimeTasks } from '@/lib/database';
-import { getWeekDates, formatDate } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TimeReminderBannerProps {
   currentDate: Date;
 }
 
 export default function TimeReminderBanner({ currentDate }: TimeReminderBannerProps) {
+  const { userProfile } = useAuth();
   const [unfilledCount, setUnfilledCount] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
-  // Check localStorage for dismiss state
+  const myName = userProfile?.displayName || '';
+
+  // Check localStorage for dismiss state (per user)
   useEffect(() => {
-    const dismissedAt = localStorage.getItem('time_reminder_dismissed_at');
+    if (!myName) return;
+    const key = `time_reminder_dismissed_${myName}`;
+    const dismissedAt = localStorage.getItem(key);
     if (dismissedAt) {
       const dismissedTime = parseInt(dismissedAt, 10);
       const now = Date.now();
@@ -24,34 +29,46 @@ export default function TimeReminderBanner({ currentDate }: TimeReminderBannerPr
       if (now - dismissedTime < 24 * 60 * 60 * 1000) {
         setIsDismissed(true);
       } else {
-        localStorage.removeItem('time_reminder_dismissed_at');
+        localStorage.removeItem(key);
+        setIsDismissed(false);
       }
+    } else {
+      setIsDismissed(false);
     }
-  }, []);
+  }, [myName]);
 
-  // Subscribe to unfilled time tasks for current month
+  // Subscribe to unfilled time tasks for current month — filtered by my name
   useEffect(() => {
+    if (!myName) return;
+
     const now = new Date();
     const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const unsubscribe = subscribeToUnfilledTimeTasks(startOfMonth, endOfMonth, (count) => {
-      setUnfilledCount(count);
-      if (count > 0) {
+    const unsubscribe = subscribeToUnfilledTimeTasks(startOfMonth, endOfMonth, (count, tasks) => {
+      // Filter only MY tasks
+      const myTasks = tasks.filter(t => t.employeeName === myName);
+      const myCount = myTasks.length;
+      setUnfilledCount(myCount);
+      if (myCount > 0) {
         setIsVisible(true);
+      } else {
+        setIsVisible(false);
       }
     });
 
     return () => unsubscribe();
-  }, [currentDate]);
+  }, [currentDate, myName]);
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    localStorage.setItem('time_reminder_dismissed_at', Date.now().toString());
+    if (myName) {
+      localStorage.setItem(`time_reminder_dismissed_${myName}`, Date.now().toString());
+    }
   };
 
-  if (isDismissed || unfilledCount === 0 || !isVisible) return null;
+  if (isDismissed || unfilledCount === 0 || !isVisible || !myName) return null;
 
   return (
     <div className="mb-4 animate-fade-in">

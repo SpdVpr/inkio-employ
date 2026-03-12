@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock, MoreHorizontal, Building2 } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
 import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes } from '@/lib/database';
 import ProgressBar from './ProgressBar';
 import TimeInput from './TimeInput';
-import { showCompletionToast } from './CompletionToast';
+import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
+import { Company, subscribeToCompanies } from '@/lib/companies';
 
 interface SubTaskEditModalProps {
   isOpen: boolean;
@@ -38,7 +39,18 @@ export default function SubTaskEditModal({
   const [movingTaskPosition, setMovingTaskPosition] = useState<{ top: number; right: number } | null>(null);
   const [datePickerTaskId, setDatePickerTaskId] = useState<string | null>(null);
   const [moveToDateValue, setMoveToDateValue] = useState<string>('');
+  const [actionsMenuTaskId, setActionsMenuTaskId] = useState<string | null>(null);
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const [companyPickerTaskId, setCompanyPickerTaskId] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const moveMenuRef = useRef<HTMLDivElement>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Subscribe to companies
+  useEffect(() => {
+    const unsub = subscribeToCompanies(setCompanies);
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     setSubTasks(initialSubTasks);
@@ -48,6 +60,9 @@ export default function SubTaskEditModal({
     const handleClickOutside = (event: MouseEvent) => {
       if (moveMenuRef.current && !moveMenuRef.current.contains(event.target as Node)) {
         setMovingTaskId(null);
+      }
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setActionsMenuTaskId(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -77,7 +92,8 @@ export default function SubTaskEditModal({
           content: (task.content || '').trim(),
           status: task.status || 'pending',
           order: index,
-          timeMinutes: typeof task.timeMinutes === 'number' ? task.timeMinutes : 0
+          timeMinutes: typeof task.timeMinutes === 'number' ? task.timeMinutes : 0,
+          ...(task.companyId ? { companyId: task.companyId } : {})
         }));
       onSave(updatedSubTasks);
       onClose();
@@ -150,6 +166,9 @@ export default function SubTaskEditModal({
       const newStatus = getNextStatus(task.status);
       if (newStatus === 'completed') {
         showCompletionToast(task.content);
+        if (!task.timeMinutes) {
+          setTimeout(() => showTimeWarningToast(task.content), 400);
+        }
       }
     }
     setSubTasks(prev => prev.map(task =>
@@ -213,7 +232,7 @@ export default function SubTaskEditModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-slate-200/60 animate-slide-up">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] min-h-[60vh] flex flex-col border border-slate-200/60 animate-slide-up">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
@@ -271,7 +290,7 @@ export default function SubTaskEditModal({
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all border ${draggedIndex === index ? 'opacity-40 border-indigo-200 bg-indigo-50' : 'opacity-100 border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all border ${draggedIndex === index ? 'opacity-40 border-blue-200 bg-blue-50' : 'opacity-100 border-slate-100 hover:border-slate-200 hover:bg-slate-50'
                   } cursor-move relative group/task`}
               >
                 <GripVertical size={14} className="text-slate-300 flex-shrink-0 group-hover/task:text-slate-400" />
@@ -283,12 +302,23 @@ export default function SubTaskEditModal({
                   {getSubTaskIcon(task.status)}
                 </button>
 
-                <input
-                  type="text"
+                <textarea
                   value={task.content}
                   onChange={(e) => updateSubTask(task.id, { content: e.target.value })}
                   placeholder="Zadejte úkol..."
-                  className={`flex-1 px-1.5 py-0 border-none outline-none bg-transparent text-sm text-slate-800 font-medium placeholder:text-slate-300 min-w-0 ${task.status === 'completed' ? 'line-through text-slate-400' : ''
+                  rows={1}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = 'auto';
+                    el.style.height = el.scrollHeight + 'px';
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = el.scrollHeight + 'px';
+                    }
+                  }}
+                  className={`flex-1 px-1.5 py-0 border-none outline-none bg-transparent text-sm text-slate-800 font-medium placeholder:text-slate-300 min-w-0 resize-none overflow-hidden ${task.status === 'completed' ? 'line-through text-slate-400' : ''
                     }`}
                 />
 
@@ -301,59 +331,132 @@ export default function SubTaskEditModal({
                   />
                 </div>
 
-                <div className="flex items-center gap-0.5">
-                  {/* Duplicate */}
-                  <button
-                    onClick={() => duplicateSubTask(task)}
-                    className="action-btn primary"
-                    title="Duplikovat úkol (stejný den)"
-                  >
-                    <Copy size={14} />
-                  </button>
+                {/* Company tag */}
+                <div className="flex-shrink-0 relative" onClick={(e) => e.stopPropagation()}>
+                  {task.companyId ? (
+                    <button
+                      onClick={() => setCompanyPickerTaskId(companyPickerTaskId === task.id ? null : task.id)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all hover:opacity-80 shadow-sm"
+                      style={{
+                        background: (companies.find(c => c.id === task.companyId)?.color || '#64748b') + '20',
+                        color: companies.find(c => c.id === task.companyId)?.color || '#64748b',
+                        border: `1.5px solid ${(companies.find(c => c.id === task.companyId)?.color || '#64748b')}50`
+                      }}
+                    >
+                      <span>{companies.find(c => c.id === task.companyId)?.icon || '🏢'}</span>
+                      <span className="max-w-[100px] truncate">{companies.find(c => c.id === task.companyId)?.name || 'Firma'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setCompanyPickerTaskId(companyPickerTaskId === task.id ? null : task.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-2 border-dashed border-slate-200 hover:border-blue-300 transition-all"
+                      title="Přidat firmu"
+                    >
+                      <Building2 size={13} />
+                      <span>Firma</span>
+                    </button>
+                  )}
 
-                  {/* Duplicate to next day */}
-                  <button
-                    onClick={() => duplicateToNextDay(task)}
-                    className="action-btn primary"
-                    title="Duplikovat do dalšího dne"
-                  >
-                    <CopyPlus size={14} />
-                  </button>
+                  {/* Company picker dropdown */}
+                  {companyPickerTaskId === task.id && (
+                    <div className="absolute bottom-full right-0 mb-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] py-1 max-h-60 overflow-y-auto animate-fade-in">
+                      <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        Vyberte firmu
+                      </div>
+                      {task.companyId && (
+                        <button
+                          onClick={() => { updateSubTask(task.id, { companyId: undefined }); setCompanyPickerTaskId(null); }}
+                          className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          ✕ Odebrat firmu
+                        </button>
+                      )}
+                      {companies.map(company => (
+                        <button
+                          key={company.id}
+                          onClick={() => { updateSubTask(task.id, { companyId: company.id }); setCompanyPickerTaskId(null); }}
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 transition-colors ${task.companyId === company.id ? 'bg-blue-50 font-semibold' : 'text-slate-600'}`}
+                        >
+                          <span>{company.icon}</span>
+                          <span style={{ color: company.color }}>{company.name}</span>
+                        </button>
+                      ))}
+                      {companies.length === 0 && (
+                        <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                          Žádné firmy.<br />Přidejte je v Adminu.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                  {/* Move to employee */}
+                {/* Actions menu (⋯) */}
+                <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
+                    ref={(el) => { if (el && actionsMenuTaskId === task.id) { el.dataset.menuAnchor = 'true'; } }}
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
-                      setMovingTaskId(movingTaskId === task.id ? null : task.id);
-                      setMovingTaskPosition({ top: rect.bottom, right: window.innerWidth - rect.right });
+                      setActionsMenuPosition({ top: rect.top, right: window.innerWidth - rect.right });
+                      setActionsMenuTaskId(actionsMenuTaskId === task.id ? null : task.id);
+                      setMovingTaskId(null);
                       setDatePickerTaskId(null);
                     }}
-                    className="action-btn primary"
-                    title="Přesunout na jiného zaměstnance"
+                    className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-500 hover:text-blue-700 transition-all"
+                    title="Akce"
                   >
-                    <CornerUpRight size={14} />
+                    <MoreHorizontal size={18} />
                   </button>
 
-                  {/* Move to date */}
-                  <button
-                    onClick={() => {
-                      setDatePickerTaskId(datePickerTaskId === task.id ? null : task.id);
-                      setMovingTaskId(null);
-                    }}
-                    className="action-btn primary"
-                    title="Přesunout na jiný den"
-                  >
-                    <CalendarDays size={14} />
-                  </button>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => deleteSubTask(task.id)}
-                    className="action-btn danger"
-                    title="Smazat úkol"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {actionsMenuTaskId === task.id && actionsMenuPosition && (
+                    <div
+                      ref={actionsMenuRef}
+                      className="fixed w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1"
+                      style={{ bottom: window.innerHeight - actionsMenuPosition.top + 4, right: actionsMenuPosition.right, zIndex: 9999 }}
+                    >
+                      <button
+                        onClick={() => { duplicateSubTask(task); setActionsMenuTaskId(null); }}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                      >
+                        <Copy size={13} /> Duplikovat (stejný den)
+                      </button>
+                      <button
+                        onClick={() => { duplicateToNextDay(task); setActionsMenuTaskId(null); }}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                      >
+                        <CopyPlus size={13} /> Duplikovat do dalšího dne
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setMovingTaskId(movingTaskId === task.id ? null : task.id);
+                          setMovingTaskPosition({ top: rect.bottom, right: window.innerWidth - rect.right });
+                          setDatePickerTaskId(null);
+                          setActionsMenuTaskId(null);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                      >
+                        <CornerUpRight size={13} /> Přesunout na zaměstnance
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDatePickerTaskId(datePickerTaskId === task.id ? null : task.id);
+                          setMovingTaskId(null);
+                          setActionsMenuTaskId(null);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                      >
+                        <CalendarDays size={13} /> Přesunout na jiný den
+                      </button>
+                      <div className="border-t border-slate-100 mt-1 pt-1">
+                        <button
+                          onClick={() => { deleteSubTask(task.id); setActionsMenuTaskId(null); }}
+                          className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 size={13} /> Smazat úkol
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -370,7 +473,7 @@ export default function SubTaskEditModal({
                   type="date"
                   value={moveToDateValue}
                   onChange={(e) => setMoveToDateValue(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400"
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
                 />
                 <button
                   onClick={() => {
@@ -380,7 +483,7 @@ export default function SubTaskEditModal({
                     }
                   }}
                   disabled={!moveToDateValue || moveToDateValue.length !== 10}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Přesunout
                 </button>
@@ -413,7 +516,7 @@ export default function SubTaskEditModal({
                       const task = subTasks.find(t => t.id === movingTaskId);
                       if (task) handleMoveTask(task, targetEmp);
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2 transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
                   >
                     <div className={`w-2 h-2 rounded-full ${targetEmp.type === 'internal' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
                     {targetEmp.name}
@@ -425,7 +528,7 @@ export default function SubTaskEditModal({
 
           <button
             onClick={addSubTask}
-            className="w-full mt-4 p-3 border-2 border-dashed border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-medium"
+            className="w-full mt-4 p-3 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 text-slate-400 hover:text-blue-600 text-sm font-medium"
           >
             <Plus size={16} />
             Přidat úkol
@@ -442,7 +545,7 @@ export default function SubTaskEditModal({
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition-colors text-sm font-semibold shadow-sm hover:shadow"
+            className="px-5 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors text-sm font-semibold shadow-sm hover:shadow"
           >
             Uložit
           </button>

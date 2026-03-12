@@ -16,6 +16,7 @@ import { Employee } from './utils';
 export interface EmployeeDocument extends Employee {
   id: string;
   order: number; // Pro řazení zaměstnanců
+  linkedUid?: string; // UID of the paired user account
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -102,6 +103,20 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
   }
 };
 
+// Aktualizovat hodinovou sazbu zaměstnance
+export const updateEmployeeHourlyRate = async (employeeId: string, hourlyRate: number): Promise<void> => {
+  try {
+    const employeeRef = doc(db, COLLECTION_NAME, employeeId);
+    await setDoc(employeeRef, {
+      hourlyRate,
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error updating hourly rate:', error);
+    throw error;
+  }
+};
+
 // Migrovat stávající zaměstnance do Firebase (jednorázová akce)
 export const migrateEmployeesToFirebase = async (
   employees: Employee[]
@@ -144,6 +159,82 @@ export const reorderEmployees = async (
     console.log('Employees reordered successfully');
   } catch (error) {
     console.error('Error reordering employees:', error);
+    throw error;
+  }
+};
+
+// Změnit typ zaměstnance (přesun mezi týmy)
+export const updateEmployeeType = async (
+  employeeId: string,
+  newType: 'internal' | 'external' | 'unassigned',
+  newOrder: number
+): Promise<void> => {
+  try {
+    const employeeRef = doc(db, COLLECTION_NAME, employeeId);
+    await setDoc(employeeRef, {
+      type: newType,
+      order: newOrder,
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+    console.log(`Employee ${employeeId} moved to ${newType} at order ${newOrder}`);
+  } catch (error) {
+    console.error('Error updating employee type:', error);
+    throw error;
+  }
+};
+
+// Hromadné přeuspořádání zaměstnanců v rámci jednoho typu
+export const reorderEmployeesInType = async (
+  updates: { id: string; order: number }[]
+): Promise<void> => {
+  try {
+    const promises = updates.map(({ id, order }) => {
+      const employeeRef = doc(db, COLLECTION_NAME, id);
+      return setDoc(employeeRef, {
+        order,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+    });
+    
+    await Promise.all(promises);
+    console.log('Employees reordered in type successfully');
+  } catch (error) {
+    console.error('Error reordering employees in type:', error);
+    throw error;
+  }
+};
+
+// Spárovat zaměstnance s uživatelským účtem
+export const pairEmployeeToUser = async (
+  employeeId: string,
+  uid: string
+): Promise<void> => {
+  try {
+    const employeeRef = doc(db, COLLECTION_NAME, employeeId);
+    await setDoc(employeeRef, {
+      linkedUid: uid,
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+    console.log(`Employee ${employeeId} paired with user ${uid}`);
+  } catch (error) {
+    console.error('Error pairing employee:', error);
+    throw error;
+  }
+};
+
+// Odpárovat zaměstnance od uživatelského účtu
+export const unpairEmployee = async (
+  employeeId: string
+): Promise<void> => {
+  try {
+    const employeeRef = doc(db, COLLECTION_NAME, employeeId);
+    await setDoc(employeeRef, {
+      linkedUid: '',
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+    console.log(`Employee ${employeeId} unpaired`);
+  } catch (error) {
+    console.error('Error unpairing employee:', error);
     throw error;
   }
 };

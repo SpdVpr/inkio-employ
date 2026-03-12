@@ -5,7 +5,8 @@ import { Employee, formatDate, getStatusIcon } from '@/lib/utils';
 import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
-import { showCompletionToast } from './CompletionToast';
+import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
+import EmployeeAvatar from './EmployeeAvatar';
 import { Clock } from 'lucide-react';
 
 interface DragData {
@@ -32,6 +33,7 @@ interface EmployeeRowProps {
   onDrop: (employee: Employee, date: Date) => void;
   draggedCell: DragData | null;
   yearlyStats?: { totalTasks: number; completedTasks: number; completionRate: number };
+  avatarId?: number;
 }
 
 export default function EmployeeRow({
@@ -51,7 +53,8 @@ export default function EmployeeRow({
   onDragOver,
   onDrop,
   draggedCell,
-  yearlyStats
+  yearlyStats,
+  avatarId
 }: EmployeeRowProps) {
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
 
@@ -83,6 +86,9 @@ export default function EmployeeRow({
         const task = dayTasks.find(t => t.id === subTaskId);
         if (task) {
           showCompletionToast(task.content);
+          if (!task.timeMinutes) {
+            setTimeout(() => showTimeWarningToast(task.content), 400);
+          }
         }
       }
     } catch (error) {
@@ -99,40 +105,31 @@ export default function EmployeeRow({
 
   return (
     <tr className="group/row border-b border-slate-100 last:border-b-0">
-      {/* Employee name column */}
+      {/* Employee name column — compact but prominent */}
       <th
-        className="sticky-left sticky left-0 z-5 w-[180px] min-w-[180px] max-w-[180px] px-3 py-2.5 text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50/50 transition-colors"
+        className="sticky-left sticky left-0 z-5 w-[120px] min-w-[120px] max-w-[120px] px-2 py-2 text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50/50 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${employee.type === 'internal' ? 'bg-emerald-400' : 'bg-blue-400'
-            }`} />
-
-          <div className="min-w-0 flex-1">
-            <div className="font-bold text-[15px] text-slate-900 leading-tight truncate">
-              {employee.name}
-            </div>
-            {employee.position && (
-              <div className="text-[10px] text-slate-400 mt-0.5 truncate leading-tight">
-                {employee.position}
-              </div>
-            )}
+        <div className="flex flex-col items-center gap-0.5 text-center">
+          <EmployeeAvatar name={employee.name} avatarId={avatarId} size={70} />
+          <div className="font-bold text-[18px] text-slate-900 leading-tight truncate w-full">
+            {employee.name}
           </div>
-
-          {/* Yearly stats — compact, only show rate */}
-          {yearlyStats && yearlyStats.totalTasks > 0 && (
-            <div
-              className="flex-shrink-0"
-              title={`Tento týden: ${yearlyStats.completedTasks} hotových z ${yearlyStats.totalTasks} (${yearlyStats.completionRate}%)`}
-            >
-              <span className={`text-[10px] font-bold tabular-nums ${yearlyStats.completionRate >= 75
-                ? 'text-emerald-500'
-                : yearlyStats.completionRate >= 40
-                  ? 'text-amber-500'
-                  : 'text-slate-300'
-                }`}>
-                {yearlyStats.completionRate}%
-              </span>
+          {employee.position && (
+            <div className="text-[11px] text-slate-400 truncate w-full leading-tight">
+              {employee.position}
             </div>
+          )}
+          {yearlyStats && yearlyStats.totalTasks > 0 && (
+            <span className={`text-[12px] font-bold tabular-nums ${yearlyStats.completionRate >= 75
+              ? 'text-emerald-500'
+              : yearlyStats.completionRate >= 40
+                ? 'text-amber-500'
+                : 'text-slate-300'
+              }`}
+              title={`${yearlyStats.completedTasks}/${yearlyStats.totalTasks} (${yearlyStats.completionRate}%)`}
+            >
+              {yearlyStats.completionRate}%
+            </span>
           )}
         </div>
       </th>
@@ -153,35 +150,37 @@ export default function EmployeeRow({
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const isToday = new Date().toDateString() === date.toDateString();
 
-        // Cell background — very subtle
+        // Cell background — visible differentiation
         let cellBg = 'bg-white';
         if (isAbsent) {
           cellBg = 'bg-red-50/60';
         } else if (progress === 100) {
           cellBg = 'bg-emerald-50/40';
         } else if (isToday) {
-          cellBg = 'bg-[#1764f3]/10';
+          cellBg = 'bg-blue-100/70';
         } else if (isWeekend) {
-          cellBg = 'bg-slate-50/40';
+          cellBg = 'bg-gray-100';
         }
 
         // Left accent based on location (only if set)
         const locationAccent = workLocation === 'office'
           ? 'border-l-2 border-l-emerald-400'
           : workLocation === 'homeoffice'
-            ? 'border-l-2 border-l-violet-400'
+            ? 'border-l-2 border-l-blue-400'
             : '';
+
+        const colWidth = isToday ? 'w-[300px] min-w-[300px]' : 'w-[190px] min-w-[190px]';
 
         return (
           <td
             key={dateStr}
-            className={`${cellBg} ${locationAccent} border-r border-slate-100 w-[220px] min-w-[220px] max-w-[220px] align-top cursor-pointer transition-all hover:bg-slate-50/50 relative`}
+            className={`${cellBg} ${locationAccent} border-r border-slate-100 ${colWidth} align-top cursor-pointer transition-all hover:bg-slate-50/50 relative`}
             onClick={() => onOpenModal(employee, date, taskContent)}
             onContextMenu={(e) => handleContextMenu(e, date)}
             onDragOver={onDragOver}
             onDrop={() => onDrop(employee, date)}
           >
-            <div className="h-[180px] px-2.5 py-1.5 text-sm text-slate-800 relative overflow-hidden flex flex-col">
+            <div className="h-[235px] px-2 py-1.5 text-sm text-slate-800 relative overflow-hidden flex flex-col w-full">
 
               {/* Absent — centered in the full cell */}
               {isAbsent && (
@@ -207,8 +206,8 @@ export default function EmployeeRow({
                   <button
                     onClick={(e) => { e.stopPropagation(); onWorkLocationChange(employee, date, workLocation === 'homeoffice' ? 'unset' : 'homeoffice'); }}
                     className={`flex-1 px-1 py-0.5 rounded text-[10px] font-semibold transition-all border ${workLocation === 'homeoffice'
-                      ? 'bg-violet-100 text-violet-700 border-violet-300'
-                      : 'bg-white text-slate-400 border-slate-200 hover:border-violet-300 hover:text-violet-500'
+                      ? 'bg-blue-100 text-blue-700 border-blue-300'
+                      : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300 hover:text-blue-500'
                       }`}
                   >
                     🏠 Home
@@ -268,7 +267,7 @@ export default function EmployeeRow({
                         onClick={(e) => { e.stopPropagation(); onWorkLocationChange(employee, date, loc); }}
                         className={`px-2 py-0.5 text-[10px] rounded font-medium transition-colors ${workLocation === loc
                           ? loc === 'office' ? 'bg-emerald-100 text-emerald-700'
-                            : loc === 'homeoffice' ? 'bg-violet-100 text-violet-700'
+                            : loc === 'homeoffice' ? 'bg-blue-100 text-blue-700'
                               : 'bg-slate-100 text-slate-500'
                           : 'text-slate-400 hover:bg-slate-50'
                           }`}
