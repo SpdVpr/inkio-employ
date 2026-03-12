@@ -437,7 +437,7 @@ export default function EmployeeSchedule() {
           <table className="w-full min-w-[1720px]">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="sticky-left bg-white px-3 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 border-r border-slate-100 min-w-[180px] w-[180px] align-middle">
+                <th className="bg-white px-3 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400 border-r border-slate-100 min-w-[180px] w-[180px] align-middle">
                   Zaměstnanec
                 </th>
                 {weekData.days.map((date) => (
@@ -453,7 +453,7 @@ export default function EmployeeSchedule() {
               {/* Internal employees */}
               {internalEmployees.length > 0 && (
                 <tr>
-                  <td colSpan={8} className="sticky-left sticky left-0 px-4 py-1.5 bg-emerald-50/50 border-b border-emerald-100/50">
+                  <td colSpan={8} className="px-4 py-1.5 bg-emerald-50 border-b border-emerald-100">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
                       <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Interní tým</span>
@@ -488,7 +488,7 @@ export default function EmployeeSchedule() {
               {/* External employees */}
               {externalEmployees.length > 0 && (
                 <tr>
-                  <td colSpan={8} className="sticky-left sticky left-0 px-4 py-1.5 bg-blue-50/50 border-b border-blue-100/50 border-t border-t-slate-100">
+                  <td colSpan={8} className="px-4 py-1.5 bg-blue-50 border-b border-blue-100 border-t border-t-slate-100">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-400"></div>
                       <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Externí tým</span>

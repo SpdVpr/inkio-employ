@@ -298,7 +298,7 @@ export default function DashboardPage() {
     if (today) {
       classes += ' text-white bg-[#1765F2]';
     } else if (isWeekendDay(date)) {
-      classes += ' text-slate-400 bg-gray-100 dark:bg-slate-800/60';
+      classes += ' text-slate-400 bg-gray-100 dark:bg-slate-800';
     } else {
       classes += ' text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900';
     }

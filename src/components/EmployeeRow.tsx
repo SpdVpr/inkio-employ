@@ -116,7 +116,7 @@ export default function EmployeeRow({
     <tr className="group/row border-b border-slate-100 last:border-b-0">
       {/* Employee name column — compact but prominent */}
       <th
-        className="sticky-left sticky left-0 z-5 w-[120px] min-w-[120px] max-w-[120px] px-2 py-2 text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50/50 transition-colors"
+        className="w-[120px] min-w-[120px] max-w-[120px] px-2 py-2 text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50 transition-colors"
       >
         <div className="flex flex-col items-center gap-0.5 text-center">
           <EmployeeAvatar name={employee.name} avatarId={avatarId} size={70} />
@@ -162,11 +162,11 @@ export default function EmployeeRow({
         // Cell background — visible differentiation
         let cellBg = 'bg-white';
         if (isAbsent) {
-          cellBg = 'bg-red-50/60';
+          cellBg = 'bg-red-50';
         } else if (progress === 100) {
-          cellBg = 'bg-emerald-50/40';
+          cellBg = 'bg-emerald-50';
         } else if (isToday) {
-          cellBg = 'bg-blue-100/70';
+          cellBg = 'bg-blue-50';
         } else if (isWeekend) {
           cellBg = 'bg-gray-100';
         }
@@ -183,7 +183,7 @@ export default function EmployeeRow({
         return (
           <td
             key={dateStr}
-            className={`${cellBg} ${locationAccent} border-r border-slate-100 ${colWidth} align-top cursor-pointer transition-all hover:bg-slate-50/50 relative`}
+            className={`${cellBg} ${locationAccent} border-r border-slate-100 ${colWidth} align-top cursor-pointer transition-all hover:bg-slate-50 relative`}
             onClick={() => onOpenModal(employee, date, taskContent)}
             onContextMenu={(e) => handleContextMenu(e, date)}
             onDragOver={onDragOver}
@@ -193,7 +193,7 @@ export default function EmployeeRow({
 
               {/* Absent — centered in the full cell */}
               {isAbsent && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-red-50/50">
+                <div className="absolute inset-0 flex items-center justify-center z-[1] bg-red-50">
                   <span className="px-3 py-1 bg-red-100 text-red-500 text-xs font-semibold rounded-lg">
                     🚫 Nepřítomen
                   </span>
