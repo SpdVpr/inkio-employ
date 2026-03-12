@@ -8,6 +8,7 @@ import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, 
 import ProgressBar from './ProgressBar';
 import TimeInput from './TimeInput';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
+import { createNotification, createBroadcastNotification } from '@/lib/notifications';
 import { Company, subscribeToCompanies } from '@/lib/companies';
 
 interface SubTaskEditModalProps {
@@ -95,6 +96,20 @@ export default function SubTaskEditModal({
           timeMinutes: typeof task.timeMinutes === 'number' ? task.timeMinutes : 0,
           ...(task.companyId ? { companyId: task.companyId } : {})
         }));
+
+      // Check for new tasks added
+      const newTasks = updatedSubTasks.filter(
+        t => !initialSubTasks.some(init => init.id === t.id)
+      );
+      if (newTasks.length > 0) {
+        createBroadcastNotification({
+          type: 'new_task',
+          title: `${newTasks.length > 1 ? 'Nové úkoly' : 'Nový úkol'} pro ${employee.name}`,
+          message: newTasks.map(t => t.content).join(', '),
+          link: '/dashboard'
+        });
+      }
+
       onSave(updatedSubTasks);
       onClose();
     } catch (error) {

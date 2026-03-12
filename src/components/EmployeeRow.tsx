@@ -6,6 +6,7 @@ import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocati
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
+import { createBroadcastNotification } from '@/lib/notifications';
 import EmployeeAvatar from './EmployeeAvatar';
 import { Clock } from 'lucide-react';
 
@@ -89,6 +90,14 @@ export default function EmployeeRow({
           if (!task.timeMinutes) {
             setTimeout(() => showTimeWarningToast(task.content), 400);
           }
+          // Notification
+          createBroadcastNotification({
+            type: 'task_completed',
+            title: `${employee.name} splnil(a) úkol`,
+            message: task.content,
+            senderName: employee.name,
+            link: '/dashboard'
+          });
         }
       }
     } catch (error) {

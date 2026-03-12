@@ -324,7 +324,7 @@ export default function DashboardPage() {
       <TimeReminderBanner currentDate={currentDate} />
 
       {/* ===== TOP BAR: View tabs + Navigation ===== */}
-      <div className="dash-toolbar">
+      <div className={`dash-toolbar ${viewMode === 'my-day' ? 'dash-toolbar-centered' : ''}`}>
         {/* View tabs */}
         <div className="dash-tabs">
           <button

@@ -2,9 +2,10 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
-import { MessageSquare, Bell } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
+import NotificationBell from '@/components/NotificationBell';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -50,9 +51,7 @@ export default function TopBar() {
           </Link>
 
           {/* Notifications */}
-          <button className="topbar-btn relative" title="Notifikace">
-            <Bell size={18} />
-          </button>
+          <NotificationBell />
 
           {/* User avatar */}
           {userProfile && (

@@ -63,6 +63,16 @@ export const signUpWithEmail = async (
     displayName,
     photoURL: null
   });
+
+  // Notify admins
+  const { createBroadcastNotification } = await import('./notifications');
+  createBroadcastNotification({
+    type: 'new_user',
+    title: `Nový uživatel: ${displayName}`,
+    message: email,
+    senderName: displayName,
+    link: '/admin/employees'
+  });
   
   return credential;
 };
@@ -79,6 +89,14 @@ export const signInWithGoogle = async () => {
       email: credential.user.email || '',
       displayName: credential.user.displayName || '',
       photoURL: credential.user.photoURL
+    });
+    const { createBroadcastNotification } = await import('./notifications');
+    createBroadcastNotification({
+      type: 'new_user',
+      title: `Nový uživatel: ${credential.user.displayName || 'Google User'}`,
+      message: credential.user.email || '',
+      senderName: credential.user.displayName || 'Google User',
+      link: '/admin/employees'
     });
   }
   
@@ -100,6 +118,14 @@ export const signInWithApple = async () => {
       email: credential.user.email || '',
       displayName,
       photoURL: credential.user.photoURL
+    });
+    const { createBroadcastNotification } = await import('./notifications');
+    createBroadcastNotification({
+      type: 'new_user',
+      title: `Nový uživatel: ${displayName}`,
+      message: credential.user.email || '',
+      senderName: displayName,
+      link: '/admin/employees'
     });
   }
   

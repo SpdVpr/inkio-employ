@@ -2,34 +2,61 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmail, signInWithGoogle, signInWithApple } from '@/lib/auth';
-import { Mail, Lock, Eye, EyeOff, LogIn, Chrome, Apple, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } from '@/lib/auth';
+import { Mail, Lock, Eye, EyeOff, LogIn, Chrome, Apple, UserPlus, User } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await signInWithEmail(email, password);
+      if (isRegister) {
+        if (!name.trim()) {
+          setError('Zadejte své jméno');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('Heslo musí mít alespoň 6 znaků');
+          setLoading(false);
+          return;
+        }
+        await signUpWithEmail(email, password, name.trim());
+      } else {
+        await signInWithEmail(email, password);
+      }
       router.push('/dashboard');
     } catch (err: unknown) {
       const error = err as { code?: string };
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-        setError('Nesprávný email nebo heslo');
-      } else if (error.code === 'auth/too-many-requests') {
-        setError('Příliš mnoho pokusů. Zkuste to později.');
+      if (isRegister) {
+        if (error.code === 'auth/email-already-in-use') {
+          setError('Tento email je už registrován. Přihlaste se.');
+        } else if (error.code === 'auth/weak-password') {
+          setError('Heslo je příliš slabé. Použijte alespoň 6 znaků.');
+        } else if (error.code === 'auth/invalid-email') {
+          setError('Neplatný formát emailu');
+        } else {
+          setError('Registrace se nezdařila. Zkuste to znovu.');
+        }
       } else {
-        setError('Přihlášení se nezdařilo. Zkuste to znovu.');
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+          setError('Nesprávný email nebo heslo');
+        } else if (error.code === 'auth/too-many-requests') {
+          setError('Příliš mnoho pokusů. Zkuste to později.');
+        } else {
+          setError('Přihlášení se nezdařilo. Zkuste to znovu.');
+        }
       }
     } finally {
       setLoading(false);
@@ -68,6 +95,11 @@ export default function LoginPage() {
     }
   };
 
+  const toggleMode = () => {
+    setIsRegister(!isRegister);
+    setError('');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 login-bg">
       {/* Animated background */}
@@ -87,7 +119,7 @@ export default function LoginPage() {
             Inkio CRM
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Přihlaste se do svého účtu
+            {isRegister ? 'Vytvořte si nový účet' : 'Přihlaste se do svého účtu'}
           </p>
         </div>
 
@@ -126,20 +158,42 @@ export default function LoginPage() {
           </div>
 
           {/* Email form */}
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name field — only for registration */}
+            {isRegister && (
+              <div>
+                <label htmlFor="name" className="form-label">
+                  Jméno
+                </label>
+                <div className="relative">
+                  <User size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="form-input pr-10"
+
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="form-label">
                 Email
               </label>
               <div className="relative">
-                <Mail size={16} className="input-icon" />
+                <Mail size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="form-input pl-10"
-                  placeholder="vas@email.cz"
+                  className="form-input"
+
                   required
                   autoComplete="email"
                 />
@@ -151,16 +205,17 @@ export default function LoginPage() {
                 Heslo
               </label>
               <div className="relative">
-                <Lock size={16} className="input-icon" />
+                <Lock size={16} className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="form-input pl-10 pr-10"
-                  placeholder="••••••••"
+                  className="form-input pr-16"
+
                   required
-                  autoComplete="current-password"
+                  minLength={isRegister ? 6 : undefined}
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
                 />
                 <button
                   type="button"
@@ -170,6 +225,9 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              {isRegister && (
+                <p className="text-[11px] text-slate-400 mt-1">Minimálně 6 znaků</p>
+              )}
             </div>
 
             {error && (
@@ -185,6 +243,11 @@ export default function LoginPage() {
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isRegister ? (
+                <>
+                  <UserPlus size={16} />
+                  Zaregistrovat se
+                </>
               ) : (
                 <>
                   <LogIn size={16} />
@@ -194,15 +257,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Register link */}
+          {/* Toggle login/register */}
           <div className="mt-6 text-center">
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium transition-colors"
+            <button
+              onClick={toggleMode}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium transition-colors"
             >
-              Nemáte účet? Zaregistrujte se
-              <ArrowRight size={14} />
-            </Link>
+              {isRegister
+                ? 'Už máte účet? Přihlaste se'
+                : 'Nemáte účet? Zaregistrujte se'}
+            </button>
           </div>
         </div>
       </div>

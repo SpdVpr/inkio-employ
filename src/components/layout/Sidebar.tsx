@@ -155,26 +155,30 @@ export default function Sidebar() {
       </nav>
 
       {/* Online users */}
-      {!collapsed && onlineUsers.length > 0 && (
-        <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="sidebar-section-label mb-2">
-            Online ({onlineUsers.length})
-          </div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {onlineUsers.map((u) => (
-              <div key={u.uid} className="flex items-center gap-2 px-2 py-1 rounded-lg">
-                <div className="relative">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-                    {u.displayName?.charAt(0) || '?'}
+      {!collapsed && (() => {
+        const visibleOnline = onlineUsers.filter(u => u.role !== 'admin');
+        if (visibleOnline.length === 0) return null;
+        return (
+          <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="sidebar-section-label mb-2">
+              Online ({visibleOnline.length})
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {visibleOnline.map((u) => (
+                <div key={u.uid} className="flex items-center gap-2 px-2 py-1 rounded-lg">
+                  <div className="relative">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
+                      {u.displayName?.charAt(0) || '?'}
+                    </div>
+                    <Circle size={8} className="absolute -bottom-0.5 -right-0.5 text-emerald-500 fill-emerald-500" />
                   </div>
-                  <Circle size={8} className="absolute -bottom-0.5 -right-0.5 text-emerald-500 fill-emerald-500" />
+                  <span className="text-xs text-slate-600 dark:text-slate-300 truncate font-medium">{u.displayName}</span>
                 </div>
-                <span className="text-xs text-slate-600 dark:text-slate-300 truncate font-medium">{u.displayName}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* User profile + theme + collapse */}
       <div className="sidebar-footer">
