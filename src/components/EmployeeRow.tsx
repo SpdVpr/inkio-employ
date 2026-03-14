@@ -116,20 +116,25 @@ export default function EmployeeRow({
     <tr className="group/row border-b border-slate-100 last:border-b-0">
       {/* Employee name column — compact but prominent */}
       <th
-        className="w-[120px] min-w-[120px] max-w-[120px] px-2 py-2 text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50 transition-colors"
+        className="employee-name-col text-left align-middle bg-white border-r border-slate-100 group-hover/row:bg-slate-50 transition-colors"
       >
-        <div className="flex flex-col items-center gap-0.5 text-center">
-          <EmployeeAvatar name={employee.name} avatarId={avatarId} size={70} />
-          <div className="font-bold text-[18px] text-slate-900 leading-tight truncate w-full">
+        <div className="flex flex-col items-center gap-0 sm:gap-0.5 text-center">
+          <div className="sm:hidden">
+            <EmployeeAvatar name={employee.name} avatarId={avatarId} size={40} />
+          </div>
+          <div className="hidden sm:block">
+            <EmployeeAvatar name={employee.name} avatarId={avatarId} size={70} />
+          </div>
+          <div className="font-bold text-[12px] sm:text-[18px] text-slate-900 leading-tight truncate w-full">
             {employee.name}
           </div>
           {employee.position && (
-            <div className="text-[11px] text-slate-400 truncate w-full leading-tight">
+            <div className="text-[9px] sm:text-[11px] text-slate-400 truncate w-full leading-tight hidden sm:block">
               {employee.position}
             </div>
           )}
           {yearlyStats && yearlyStats.totalTasks > 0 && (
-            <span className={`text-[12px] font-bold tabular-nums ${yearlyStats.completionRate >= 75
+            <span className={`text-[9px] sm:text-[12px] font-bold tabular-nums ${yearlyStats.completionRate >= 75
               ? 'text-emerald-500'
               : yearlyStats.completionRate >= 40
                 ? 'text-amber-500'

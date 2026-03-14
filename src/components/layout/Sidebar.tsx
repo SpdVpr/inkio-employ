@@ -229,7 +229,7 @@ export default function Sidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="sidebar-mobile-trigger lg:hidden"
+        className="sidebar-mobile-trigger"
       >
         <Menu size={20} />
       </button>
@@ -237,13 +237,13 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 sidebar-mobile-overlay animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Sidebar - mobile */}
-      <aside className={`sidebar-mobile lg:hidden ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`sidebar-mobile ${mobileOpen ? 'open' : ''}`}>
         <button
           onClick={() => setMobileOpen(false)}
           className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -254,7 +254,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Sidebar - desktop */}
-      <aside className={`sidebar-desktop hidden lg:flex ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className={`sidebar-desktop ${collapsed ? 'sidebar-collapsed' : ''}`}>
         {sidebarContent}
       </aside>
     </>

@@ -677,14 +677,16 @@ export default function DashboardPage() {
 
       {/* ===== COMPANY VIEW (original table) ===== */}
       {viewMode === 'company' && (
-        <div className="rounded-xl shadow-sm table-with-sticky-header"
+        <div className="rounded-xl shadow-sm overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="w-full min-w-[1720px]">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th className="sticky-left px-2 py-3 text-left text-[10px] font-bold uppercase tracking-widest border-r min-w-[120px] w-[120px] align-middle"
-                  style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border-light)' }}>
-                  Zaměstnanec
+                <th className="employee-name-col sm:text-left text-center text-[10px] font-bold uppercase tracking-widest border-r align-middle overflow-hidden"
+                  style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border-light)', position: 'sticky', left: 0, zIndex: 12, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
+                  <span className="hidden sm:inline">Zaměstnanec</span>
+                  <span className="sm:hidden text-[14px]">👤</span>
                 </th>
                 {weekData.days.map((date) => (
                   <th key={formatDate(date)} className={getHeaderCellClasses(date)}
@@ -770,6 +772,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

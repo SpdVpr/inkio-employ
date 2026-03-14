@@ -191,7 +191,7 @@ export default function TaskEditModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* Overlay */}
       <div 
         className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -199,29 +199,29 @@ export default function TaskEditModal({
       />
       
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+      <div className="relative bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full sm:max-w-2xl sm:mx-4 max-h-[95vh] sm:max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div
-              className={`w-4 h-4 rounded-full ${
+              className={`w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0 ${
                 employee.type === 'internal' ? 'bg-green-500' : 'bg-blue-500'
               }`}
             />
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-semibold text-gray-900 truncate">
                 {employee.name}
               </h2>
-              <p className="text-sm text-gray-500">{employee.position}</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">{employee.position}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Undo/Redo tlačítka */}
             <button
               onClick={handleUndo}
               disabled={historyIndex <= 0}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Zpět (Ctrl+Z)"
             >
               <Undo size={16} className="text-gray-500" />
@@ -229,17 +229,17 @@ export default function TaskEditModal({
             <button
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Vpřed (Ctrl+Y)"
             >
               <Redo size={16} className="text-gray-500" />
             </button>
 
-            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+            <div className="w-px h-6 bg-gray-300 mx-0.5 sm:mx-1"></div>
 
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X size={20} className="text-gray-500" />
             </button>
@@ -247,10 +247,10 @@ export default function TaskEditModal({
         </div>
 
         {/* Date info and Absence button */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Calendar size={16} />
+        <div className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-50 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+              <Calendar size={14} />
               <span className="font-medium">
                 {formatDayName(date)} {formatDateDisplay(date)}
               </span>
@@ -259,7 +259,7 @@ export default function TaskEditModal({
             {/* Tlačítko pro nepřítomnost */}
             <button
               onClick={onAbsenceToggle}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
                 isAbsent 
                   ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300' 
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
@@ -271,8 +271,8 @@ export default function TaskEditModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="flex-1 p-4 sm:p-6">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Úkoly a poznámky:
           </label>
           <textarea
@@ -288,25 +288,25 @@ export default function TaskEditModal({
             onChange={(e) => handleContentChange(e.target.value)}
             onPaste={handlePaste}
             onKeyDown={handleKeyDown}
-            className="w-full h-64 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+            className="w-full h-48 sm:h-64 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base"
             placeholder="Zadejte úkoly, poznámky nebo plány pro tento den..."
           />
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-[10px] sm:text-xs text-gray-500 mt-2">
             Tip: Enter = nový řádek • Ctrl+Z = zpět • Ctrl+Y = vpřed • Ctrl+S = uložit
           </p>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             Zrušit
           </button>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors font-medium"
+            className="px-5 sm:px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors text-sm font-medium"
           >
             Uložit
           </button>

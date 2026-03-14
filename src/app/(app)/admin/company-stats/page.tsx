@@ -98,18 +98,18 @@ export default function CompanyStatsPage() {
   return (
     <div className="w-full max-w-[1400px]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Building2 size={24} /> Firmy — přehled
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Building2 size={20} className="flex-shrink-0" /> Firmy — přehled
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs sm:text-sm mt-0.5 hidden sm:block" style={{ color: 'var(--text-muted)' }}>
             Detailní statistiky úkolů, hodin a zaměstnanců dle firem
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <button onClick={() => navigateMonth(-1)} className="action-btn"><ChevronLeft size={18} /></button>
-          <h2 className="text-base font-semibold capitalize min-w-[140px] text-center" style={{ color: 'var(--text-primary)' }}>{monthLabel}</h2>
+          <h2 className="text-sm sm:text-base font-semibold capitalize min-w-[120px] sm:min-w-[140px] text-center" style={{ color: 'var(--text-primary)' }}>{monthLabel}</h2>
           <button onClick={() => navigateMonth(1)} className="action-btn"><ChevronRight size={18} /></button>
         </div>
       </div>
@@ -267,26 +267,26 @@ export default function CompanyStatsPage() {
                   <div key={stat.companyId} className="dashboard-card overflow-hidden" style={{ borderLeft: `4px solid ${color}` }}>
                     {/* Company header - clickable */}
                     <div
-                      className="flex items-center justify-between cursor-pointer group"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between cursor-pointer group gap-3"
                       onClick={() => setExpandedCompany(isExpanded ? null : stat.companyId)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="text-3xl w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: color + '15' }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="text-2xl sm:text-3xl w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '15' }}>
                           {icon}
                         </div>
-                        <div>
-                          <h4 className="font-bold" style={{ color }}>{name}</h4>
-                          <div className="flex items-center gap-3 mt-0.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm sm:text-base truncate" style={{ color }}>{name}</h4>
+                          <div className="flex items-center gap-3 mt-0.5 text-[10px] sm:text-[11px]" style={{ color: 'var(--text-muted)' }}>
                             <span className="flex items-center gap-1"><Users size={11} /> {stat.employeeNames.length} pracovníků</span>
                             <span className="flex items-center gap-1"><ListTodo size={11} /> {stat.totalTasks} úkolů</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-5">
+                      <div className="flex items-center gap-3 sm:gap-5 ml-auto">
                         {/* Key metrics */}
                         <div className="text-right">
-                          <p className="text-xl font-bold tabular-nums" style={{ color }}>{hours}h</p>
-                          <p className="text-[11px] font-semibold" style={{
+                          <p className="text-lg sm:text-xl font-bold tabular-nums" style={{ color }}>{hours}h</p>
+                          <p className="text-[10px] sm:text-[11px] font-semibold" style={{
                             color: rate >= 80 ? '#22c55e' : rate >= 50 ? '#f97316' : '#ef4444'
                           }}>{stat.completedTasks}/{stat.totalTasks} ({rate}%)</p>
                         </div>
