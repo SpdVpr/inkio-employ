@@ -21,6 +21,7 @@ import {
 } from '@/lib/utils';
 import { showCompletionToast, showTimeWarningToast } from '@/components/CompletionToast';
 import TimeReminderBanner from '@/components/TimeReminderBanner';
+import DashboardNotesWidget from '@/components/DashboardNotesWidget';
 import { 
   CalendarDays, 
   CheckCircle, 
@@ -220,7 +221,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* KARTA: MOJE DNEŠNÍ ÚKOLY */}
         <div className="dashboard-widget">
            <div className="dashboard-widget-header">
@@ -348,6 +349,9 @@ export default function DashboardPage() {
              </div>
            )}
         </div>
+        
+        {/* KARTA: MOJE POZNÁMKY */}
+        <DashboardNotesWidget />
       </div>
       
     </div>

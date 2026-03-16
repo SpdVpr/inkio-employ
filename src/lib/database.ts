@@ -850,3 +850,55 @@ export const subscribeToUnfilledTimeTasks = (
     callback(count, unfilledTasks);
   });
 };
+
+// ======================================
+// PERSONAL NOTES
+// ======================================
+
+const NOTES_COLLECTION = getCollectionName('personal_notes');
+
+export interface PersonalNote {
+  employeeName: string;
+  content: string;
+  updatedAt: Timestamp;
+}
+
+export const subscribeToPersonalNotes = (
+  employeeName: string,
+  callback: (content: string) => void
+) => {
+  const docRef = doc(db, NOTES_COLLECTION, employeeName);
+
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as PersonalNote;
+        callback(data.content || '');
+      } else {
+        callback('');
+      }
+    },
+    (error) => {
+      console.error('Error in subscribeToPersonalNotes:', error);
+      callback(''); // Fallback pro případ chyby
+    }
+  );
+};
+
+export const savePersonalNotes = async (
+  employeeName: string,
+  content: string
+): Promise<void> => {
+  try {
+    const docRef = doc(db, NOTES_COLLECTION, employeeName);
+    await setDoc(docRef, {
+      employeeName,
+      content,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error('Error saving personal notes:', error);
+    throw error;
+  }
+};
