@@ -128,9 +128,11 @@ export default function Sidebar() {
     <>
       {/* Logo */}
       <div className={`sidebar-header ${collapsed ? 'justify-center' : ''}`}>
-        <div className="sidebar-logo">
-          <span className="text-sm font-black text-white">I</span>
-        </div>
+        <img
+          src="/favicon_io/android-chrome-512x512.png"
+          alt="Inkio"
+          className="w-9 h-9 min-w-[36px] rounded-[10px] dark:bg-white dark:p-[3px]"
+        />
         {!collapsed && (
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-slate-900 dark:text-white truncate">Inkio CRM</h1>

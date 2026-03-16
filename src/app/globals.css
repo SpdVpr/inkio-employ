@@ -3012,3 +3012,503 @@ body {
   color: var(--text-secondary);
   font-weight: 600;
 }
+
+/* ============================== */
+/* === SCHEDULE DARK MODE ======= */
+/* ============================== */
+
+/* --- Main wrapper bg --- */
+.dark .min-h-screen.bg-slate-50\/80,
+.dark .min-h-screen.bg-slate-50 {
+  background: var(--background) !important;
+}
+
+/* --- Loading state --- */
+.dark .min-h-screen.flex.items-center.justify-center.bg-slate-50 {
+  background: var(--background) !important;
+}
+
+.dark .min-h-screen .text-sm.text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+/* --- Top bar (schedule header) --- */
+.dark .bg-white.border-b.border-slate-200\/80 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* --- Schedule title / subtitle --- */
+.dark .text-sm.font-bold.text-slate-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.dark .text-slate-500 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-slate-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-slate-700 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-slate-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-slate-300 {
+  color: var(--text-muted) !important;
+}
+
+/* --- Table container --- */
+.dark .bg-white.rounded-xl.shadow-sm.border.border-slate-200\/60 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+/* --- Table header cells --- */
+.dark table thead th.bg-white {
+  background: var(--surface) !important;
+  color: var(--text-muted) !important;
+}
+
+.dark table thead th.bg-slate-50 {
+  background: var(--surface-secondary) !important;
+}
+
+/* --- Table borders --- */
+.dark .border-slate-100 {
+  border-color: var(--border-light) !important;
+}
+
+.dark .border-slate-200 {
+  border-color: var(--border) !important;
+}
+
+.dark .border-slate-200\/60 {
+  border-color: var(--border) !important;
+}
+
+.dark .border-slate-200\/80 {
+  border-color: var(--border) !important;
+}
+
+/* --- Employee name column --- */
+.dark .employee-name-col {
+  background: var(--surface) !important;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark tr.group\/row:hover .employee-name-col,
+.dark .group-hover\/row\:bg-slate-50 {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Day cells --- */
+.dark td.bg-white {
+  background: var(--surface) !important;
+}
+
+.dark td.bg-blue-50 {
+  background: rgba(23, 101, 242, 0.1) !important;
+}
+
+.dark td.bg-gray-100 {
+  background: var(--surface-secondary) !important;
+}
+
+.dark td.bg-red-50 {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.dark td.bg-emerald-50 {
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* --- Hover on cells --- */
+.dark td:hover.hover\:bg-slate-50 {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Section dividers (Interní / Externí tým) --- */
+.dark .bg-emerald-50 {
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.dark .border-emerald-100 {
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.dark td.bg-blue-50, .dark .bg-blue-50 {
+  background: rgba(23, 101, 242, 0.1) !important;
+}
+
+.dark .border-blue-100 {
+  border-color: rgba(23, 101, 242, 0.2) !important;
+}
+
+.dark .border-t-slate-100 {
+  border-top-color: var(--border-light) !important;
+}
+
+/* --- Absence overlay --- */
+.dark .bg-red-50 {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.dark .bg-red-100 {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+.dark .text-red-500 {
+  color: #f87171 !important;
+}
+
+/* --- Location toggle buttons --- */
+.dark button.bg-white.text-slate-400.border-slate-200 {
+  background: var(--surface-secondary) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
+}
+
+.dark button.bg-emerald-100 {
+  background: rgba(16, 185, 129, 0.2) !important;
+}
+
+.dark button.bg-blue-100 {
+  background: rgba(23, 101, 242, 0.2) !important;
+}
+
+/* --- Sub-task list items hover --- */
+.dark .hover\:bg-slate-50:hover {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Sub-task time badge --- */
+.dark .bg-slate-50.rounded.px-1 {
+  background: var(--surface-secondary) !important;
+}
+
+/* --- Progress bar track --- */
+.dark .bg-slate-100.rounded-full {
+  background: var(--border) !important;
+}
+
+/* --- Context menu --- */
+.dark .bg-white.rounded-lg.shadow-lg.border.border-slate-200 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark button.hover\:bg-slate-50:hover {
+  background: var(--surface-hover) !important;
+}
+
+.dark .hover\:bg-red-50:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.dark .text-red-600 {
+  color: #f87171 !important;
+}
+
+/* --- Week navigation buttons --- */
+.dark button.hover\:bg-white:hover {
+  background: var(--surface) !important;
+}
+
+.dark button.hover\:text-slate-900:hover {
+  color: var(--text-primary) !important;
+}
+
+.dark button.hover\:border-slate-200:hover {
+  border-color: var(--border) !important;
+}
+
+/* --- View mode toggle --- */
+.dark .bg-slate-100.rounded-lg.p-0\.5 {
+  background: var(--surface-secondary) !important;
+}
+
+.dark .bg-white.text-slate-900.shadow-sm {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* --- Calendar icon container --- */
+.dark .bg-blue-50.text-blue-600 {
+  background: rgba(23, 101, 242, 0.15) !important;
+  color: var(--primary-light) !important;
+}
+
+/* --- Help banner --- */
+.dark .bg-blue-50.border.border-blue-100 {
+  background: rgba(23, 101, 242, 0.1) !important;
+  border-color: rgba(23, 101, 242, 0.2) !important;
+}
+
+.dark .text-blue-700 {
+  color: var(--primary-light) !important;
+}
+
+.dark .text-blue-400 {
+  color: var(--primary) !important;
+}
+
+/* --- Admin button --- */
+.dark button.bg-slate-50.hover\:bg-slate-100.border.border-slate-200 {
+  background: var(--surface-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.dark button.bg-slate-50.hover\:bg-slate-100.border.border-slate-200:hover {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Day View cards --- */
+.dark .bg-white.rounded-xl.border.border-slate-200 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+.dark .bg-white.rounded-xl.border.border-red-200 {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark .border-b.border-slate-100 {
+  border-bottom-color: var(--border-light) !important;
+}
+
+/* Day view controls bar */
+.dark .bg-slate-50\/50 {
+  background: var(--surface-secondary) !important;
+}
+
+/* Day view time badge */
+.dark .bg-slate-50.px-2.py-1.rounded-md.border.border-slate-200 {
+  background: var(--surface-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+/* --- Footer legend --- */
+.dark .text-slate-400.font-medium.px-1 {
+  color: var(--text-muted) !important;
+}
+
+/* --- CompletionToast and TimeReminderBanner within schedule --- */
+.dark .bg-amber-50 {
+  background: rgba(245, 158, 11, 0.1) !important;
+}
+
+.dark .border-amber-200 {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.dark .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+/* --- Generic slate bg overrides for schedule area --- */
+.dark .bg-slate-100 {
+  background: var(--surface-secondary) !important;
+}
+
+.dark .bg-slate-50 {
+  background: var(--surface-secondary) !important;
+}
+
+/* ============================== */
+/* === MODALS DARK MODE ========= */
+/* ============================== */
+
+/* --- SubTaskEditModal / TaskEditModal main panel --- */
+.dark .bg-white.rounded-t-2xl,
+.dark .bg-white.sm\:rounded-2xl,
+.dark div.bg-white.rounded-t-2xl.sm\:rounded-2xl {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* --- Modal header --- */
+.dark .text-base.font-bold.text-slate-900,
+.dark .text-lg.font-bold.text-slate-900 {
+  color: var(--text-primary) !important;
+}
+
+/* --- Modal absence toggle bar and progress bar bg --- */
+.dark .bg-slate-50\/50 {
+  background: var(--surface-secondary) !important;
+}
+
+/* --- Absence toggle button (inactive state) --- */
+.dark .bg-white.text-slate-500.border.border-slate-200 {
+  background: var(--surface-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+.dark .bg-white.text-slate-500.border.border-slate-200:hover {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Active absence toggle --- */
+.dark .bg-red-100.text-red-700.border.border-red-200 {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* --- Sub-task rows in modal --- */
+.dark .border-slate-100.hover\:border-slate-200.hover\:bg-slate-50 {
+  border-color: var(--border-light) !important;
+}
+
+.dark .border-slate-100.hover\:border-slate-200.hover\:bg-slate-50:hover {
+  border-color: var(--border) !important;
+  background: var(--surface-hover) !important;
+}
+
+/* Dragging state */
+.dark .border-blue-200.bg-blue-50 {
+  border-color: rgba(23, 101, 242, 0.3) !important;
+  background: rgba(23, 101, 242, 0.1) !important;
+}
+
+/* --- Textarea in modal --- */
+.dark textarea.bg-transparent.text-slate-800,
+.dark textarea.text-sm.text-slate-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark textarea.placeholder\:text-slate-300::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* --- Company picker dropdown --- */
+.dark .bg-white.rounded-xl.shadow-xl.border.border-slate-200 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* --- Actions menu (fixed) --- */
+.dark .fixed.bg-white.rounded-xl.shadow-xl.border.border-slate-200 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .text-sm.text-slate-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-xs.text-slate-600 {
+  color: var(--text-secondary) !important;
+}
+
+/* --- Move employee submenu items --- */
+.dark button.hover\:bg-blue-50:hover {
+  background: rgba(23, 101, 242, 0.1) !important;
+}
+
+/* --- Add task button (dashed border) --- */
+.dark .border-dashed.border-slate-200 {
+  border-color: var(--border) !important;
+}
+
+.dark .border-dashed.border-slate-200:hover {
+  border-color: rgba(23, 101, 242, 0.4) !important;
+}
+
+.dark .hover\:bg-blue-50\/50:hover {
+  background: rgba(23, 101, 242, 0.08) !important;
+}
+
+/* --- Date picker inline section --- */
+.dark .bg-slate-50.rounded-xl.border.border-slate-200 {
+  background: var(--surface-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+/* Date input */
+.dark input[type="date"].border.border-slate-200 {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* --- Modal footer --- */
+.dark .border-t.border-slate-100.bg-slate-50\/30 {
+  border-top-color: var(--border-light) !important;
+  background: var(--surface-secondary) !important;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background: var(--surface-hover) !important;
+}
+
+/* --- Actions button (blue dots) --- */
+.dark .bg-blue-50.hover\:bg-blue-100.border.border-blue-200 {
+  background: rgba(23, 101, 242, 0.15) !important;
+  border-color: rgba(23, 101, 242, 0.3) !important;
+}
+
+.dark .bg-blue-50.hover\:bg-blue-100.border.border-blue-200:hover {
+  background: rgba(23, 101, 242, 0.25) !important;
+}
+
+/* --- Company tag (dashed) --- */
+.dark .border-dashed.border-slate-200.hover\:border-blue-300 {
+  border-color: var(--border) !important;
+}
+
+/* ============================== */
+/* === TIME REMINDER DARK ======= */
+/* ============================== */
+
+.dark .border-amber-200\/80 {
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.dark .from-amber-50,
+.dark .via-orange-50,
+.dark .to-amber-50,
+.dark .bg-gradient-to-r.from-amber-50 {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.dark .bg-amber-100 {
+  background: rgba(245, 158, 11, 0.15) !important;
+}
+
+.dark .text-amber-900 {
+  color: #fbbf24 !important;
+}
+
+.dark .text-amber-600 {
+  color: #f59e0b !important;
+}
+
+.dark .text-amber-500 {
+  color: #f59e0b !important;
+}
+
+.dark .hover\:bg-amber-200\/50:hover {
+  background: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* --- bg-white generic fallback for any remaining white elements --- */
+.dark .bg-white {
+  background: var(--surface) !important;
+}
