@@ -16,6 +16,8 @@ import {
   Search, Circle, Hash, Minus, SmilePlus, ThumbsUp
 } from 'lucide-react';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ChatWidget() {
   const { user, userProfile } = useAuth();
@@ -32,6 +34,8 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const { theme } = useTheme();
 
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!user || !activeChat) return;
@@ -109,6 +113,7 @@ export default function ChatWidget() {
     setSending(true);
     try {
       await sendMessage(activeChat, user.uid, userProfile.displayName, content);
+      setShowEmojiPicker(false);
     } catch (err) {
       console.error('Send error:', err);
       setInputValue(content);
@@ -289,7 +294,21 @@ export default function ChatWidget() {
                 </div>
 
                 {/* Input */}
-                <div className="chat-widget-input-area">
+                <div className="chat-widget-input-area" style={{ position: 'relative' }}>
+                  {showEmojiPicker && (
+                    <div style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: '8px', zIndex: 1000}}>
+                      <EmojiPicker 
+                        theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                        onEmojiClick={(emojiData) => setInputValue(prev => prev + emojiData.emoji)} 
+                      />
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  >
+                    <SmilePlus size={18} />
+                  </button>
                   <input
                     ref={inputRef}
                     type="text"

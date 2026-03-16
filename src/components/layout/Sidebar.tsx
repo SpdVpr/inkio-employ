@@ -25,7 +25,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Circle
+  Circle,
+  CalendarDays
 } from 'lucide-react';
 
 interface NavItem {
@@ -37,6 +38,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
+  { label: 'Kalendář', href: '/calendar', icon: <CalendarDays size={20} /> },
   { label: 'Chat', href: '/chat', icon: <MessageSquare size={20} /> },
   { label: 'Profil', href: '/profile', icon: <UserCircle size={20} /> },
 ];

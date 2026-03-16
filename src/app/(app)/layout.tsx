@@ -58,7 +58,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   }
 
   // Pages that need full width (e.g. calendar with many columns)
-  const fullWidth = pathname === '/dashboard';
+  const fullWidth = pathname === '/calendar';
 
   return (
     <div className="app-shell">

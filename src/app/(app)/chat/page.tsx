@@ -16,6 +16,8 @@ import {
   Hash, Circle, ArrowLeft, X, Check, SmilePlus, ThumbsUp
 } from 'lucide-react';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ChatPage() {
   const { user, userProfile } = useAuth();
@@ -34,6 +36,8 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { unreadPerChat } = useChatNotificationContext();
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const { theme } = useTheme();
 
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!user || !activeChat) return;
@@ -108,6 +112,7 @@ export default function ChatPage() {
     setSending(true);
     try {
       await sendMessage(activeChat, user.uid, userProfile.displayName, content);
+      setShowEmojiPicker(false);
     } catch (error) {
       console.error('Error sending message:', error);
       setInputValue(content); // Restore on error
@@ -334,7 +339,22 @@ export default function ChatPage() {
             </div>
 
             {/* Input */}
-            <div className="chat-input-area">
+            <div className="chat-input-area" style={{ position: 'relative' }}>
+              {showEmojiPicker && (
+                <div style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: '8px', zIndex: 1000}}>
+                  <EmojiPicker 
+                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                    onEmojiClick={(emojiData) => setInputValue(prev => prev + emojiData.emoji)} 
+                  />
+                </div>
+              )}
+              <button 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                className="p-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                title="Přidat emotikon"
+              >
+                <SmilePlus size={20} />
+              </button>
               <input
                 ref={inputRef}
                 type="text"
