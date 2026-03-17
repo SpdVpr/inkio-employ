@@ -5,8 +5,11 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
+type AdminType = 'admin' | 'payroll_admin';
+
 export default function SetupAdminPage() {
   const [mode, setMode] = useState<'create' | 'promote'>('create');
+  const [adminType, setAdminType] = useState<AdminType>('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,12 +19,19 @@ export default function SetupAdminPage() {
   const [loading, setLoading] = useState(false);
 
   const checkAdminPassword = () => {
-    if (adminPassword !== process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+    const expectedPassword = adminType === 'payroll_admin'
+      ? process.env.NEXT_PUBLIC_PAYROLL_ADMIN_PASSWORD
+      : process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    
+    if (adminPassword !== expectedPassword) {
       setError('❌ Špatné autorizační heslo');
       return false;
     }
     return true;
   };
+
+  const getRoleName = () => adminType === 'payroll_admin' ? 'Mzdový admin' : 'Admin';
+  const getPosition = () => adminType === 'payroll_admin' ? 'Správa mezd' : 'Administrátor';
 
   // Create new admin account
   const handleCreate = async (e: React.FormEvent) => {
@@ -41,16 +51,16 @@ export default function SetupAdminPage() {
     try {
       // Create Firebase Auth user
       const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await updateProfile(credential.user, { displayName: displayName.trim() || 'Admin' });
+      await updateProfile(credential.user, { displayName: displayName.trim() || getRoleName() });
 
-      // Create Firestore user profile with admin role
+      // Create Firestore user profile with selected admin role
       await setDoc(doc(db, 'users', credential.user.uid), {
         uid: credential.user.uid,
         email: email.trim(),
-        displayName: displayName.trim() || 'Admin',
+        displayName: displayName.trim() || getRoleName(),
         photoURL: null,
-        role: 'admin',
-        position: 'Administrátor',
+        role: adminType,
+        position: getPosition(),
         type: 'internal',
         isOnline: false,
         lastSeen: serverTimestamp(),
@@ -59,7 +69,7 @@ export default function SetupAdminPage() {
         updatedAt: serverTimestamp()
       });
 
-      setMessage(`✅ Admin účet vytvořen!\n\n📧 Email: ${email}\n🔑 Heslo: ${password}\n\nPřihlaste se na /login`);
+      setMessage(`✅ ${getRoleName()} účet vytvořen!\n\n📧 Email: ${email}\n🔑 Heslo: ${password}\n👤 Role: ${getRoleName()}\n\nPřihlaste se na /login`);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('❌ Tento email je již zaregistrován. Použijte "Povýšit stávajícího".');
@@ -86,10 +96,11 @@ export default function SetupAdminPage() {
         const data = userDoc.data();
         if (data.email === email.trim()) {
           await updateDoc(doc(db, 'users', userDoc.id), {
-            role: 'admin',
+            role: adminType,
+            position: getPosition(),
             updatedAt: serverTimestamp()
           });
-          setMessage(`✅ ${email} je nyní admin!`);
+          setMessage(`✅ ${email} je nyní ${getRoleName()}!`);
           found = true;
           break;
         }
@@ -110,6 +121,41 @@ export default function SetupAdminPage() {
       <p style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>
         Vytvořte admin účet nebo povyšte stávajícího uživatele
       </p>
+
+      {/* Admin type selector */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#64748b' }}>
+          Typ admin účtu
+        </label>
+        <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', borderRadius: 10, padding: 4 }}>
+          <button onClick={() => setAdminType('admin')}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: adminType === 'admin' ? '#fff' : 'transparent',
+              color: adminType === 'admin' ? '#1e293b' : '#94a3b8',
+              boxShadow: adminType === 'admin' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>
+            🛠️ Hlavní admin
+          </button>
+          <button onClick={() => setAdminType('payroll_admin')}
+            style={{
+              flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              background: adminType === 'payroll_admin' ? '#fff' : 'transparent',
+              color: adminType === 'payroll_admin' ? '#1e293b' : '#94a3b8',
+              boxShadow: adminType === 'payroll_admin' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>
+            💰 Mzdový admin
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, lineHeight: 1.5 }}>
+          {adminType === 'admin'
+            ? '🛠️ Hlavní admin — vše kromě mezd (zaměstnanci, firmy, statistiky, úkoly)'
+            : '💰 Mzdový admin — vše + plná správa mezd (sazby, mzdový přehled, celkové mzdy)'
+          }
+        </p>
+      </div>
 
       {/* Mode tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: '#f1f5f9', borderRadius: 10, padding: 4 }}>
@@ -139,16 +185,21 @@ export default function SetupAdminPage() {
         {/* Autorizační heslo */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#64748b' }}>
-            Autorizační heslo (z .env.local)
+            Autorizační heslo pro {getRoleName()} (z .env.local)
           </label>
           <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)}
-            placeholder="Autorizační heslo" style={inputStyle} />
+            placeholder={`Heslo pro ${getRoleName()}`} style={inputStyle} />
+          <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+            {adminType === 'admin' 
+              ? 'Proměnná: NEXT_PUBLIC_ADMIN_PASSWORD' 
+              : 'Proměnná: NEXT_PUBLIC_PAYROLL_ADMIN_PASSWORD'}
+          </p>
         </div>
 
         {/* Email */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: '#64748b' }}>
-            Email {mode === 'create' ? 'nového admin účtu' : 'existujícího uživatele'}
+            Email {mode === 'create' ? `nového ${getRoleName()} účtu` : 'existujícího uživatele'}
           </label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder={mode === 'create' ? 'admin@inkio.cz' : 'michalvesecky@gmail.com'}
@@ -170,17 +221,18 @@ export default function SetupAdminPage() {
                 Zobrazované jméno
               </label>
               <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Admin" style={inputStyle} />
+                placeholder={getRoleName()} style={inputStyle} />
             </div>
           </>
         )}
 
         <button type="submit" disabled={loading} style={{
-          width: '100%', padding: '12px', background: loading ? '#94a3b8' : '#1765F2',
+          width: '100%', padding: '12px',
+          background: loading ? '#94a3b8' : adminType === 'payroll_admin' ? '#7c3aed' : '#1765F2',
           color: 'white', border: 'none', borderRadius: 12, cursor: loading ? 'default' : 'pointer',
           fontSize: 14, fontWeight: 600
         }}>
-          {loading ? 'Zpracovávám...' : mode === 'create' ? 'Vytvořit admin účet' : 'Nastavit jako admin'}
+          {loading ? 'Zpracovávám...' : mode === 'create' ? `Vytvořit ${getRoleName()} účet` : `Nastavit jako ${getRoleName()}`}
         </button>
       </form>
 
@@ -190,8 +242,9 @@ export default function SetupAdminPage() {
       {message && mode === 'create' && (
         <a href="/login" style={{
           display: 'block', textAlign: 'center', marginTop: 16, padding: '10px',
-          background: '#f0f0ff', borderRadius: 10, color: '#1765F2', fontWeight: 600,
-          fontSize: 13, textDecoration: 'none'
+          background: adminType === 'payroll_admin' ? '#f5f0ff' : '#f0f0ff',
+          borderRadius: 10, color: adminType === 'payroll_admin' ? '#7c3aed' : '#1765F2',
+          fontWeight: 600, fontSize: 13, textDecoration: 'none'
         }}>
           Přejít na přihlášení →
         </a>

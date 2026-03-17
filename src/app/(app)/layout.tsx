@@ -30,10 +30,17 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && user && userProfile && pathname !== '/pair-account') {
       const isPaired = userProfile.pairedEmployeeId && userProfile.pairedEmployeeId !== '';
-      const isAdmin = userProfile.role === 'admin';
+      const isAdmin = userProfile.role === 'admin' || userProfile.role === 'payroll_admin';
       if (!isPaired && !isAdmin) {
         router.push('/pair-account');
       }
+    }
+  }, [user, userProfile, loading, pathname, router]);
+
+  // Payroll admin auto-redirect: land on /admin/statistics instead of /dashboard
+  useEffect(() => {
+    if (!loading && user && userProfile && userProfile.role === 'payroll_admin' && pathname === '/dashboard') {
+      router.replace('/admin/statistics');
     }
   }, [user, userProfile, loading, pathname, router]);
 

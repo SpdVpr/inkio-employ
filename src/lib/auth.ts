@@ -30,7 +30,7 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   avatarId?: number;        // Local avatar file ID (1–95)
-  role: 'admin' | 'employee';
+  role: 'admin' | 'payroll_admin' | 'employee';
   position: string;
   type: 'internal' | 'external' | 'unassigned';
   pairedEmployeeId?: string; // ID of the paired employee record
@@ -221,7 +221,7 @@ export const updateUserProfile = async (
 };
 
 // Update user role (admin only)
-export const updateUserRole = async (uid: string, role: 'admin' | 'employee') => {
+export const updateUserRole = async (uid: string, role: 'admin' | 'payroll_admin' | 'employee') => {
   const userRef = doc(db, 'users', uid);
   await updateDoc(userRef, {
     role,

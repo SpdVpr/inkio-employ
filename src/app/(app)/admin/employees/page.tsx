@@ -128,7 +128,7 @@ export default function AdminEmployeesPage() {
   const freeUsers = users.filter(u => {
     const pid = u.pairedEmployeeId;
     const isUnpaired = !pid || pid === '' || pid === '__none__';
-    return isUnpaired && u.role !== 'admin';
+    return isUnpaired && u.role !== 'admin' && u.role !== 'payroll_admin';
   });
 
   // Users available for manual pairing (not yet paired)
@@ -296,9 +296,13 @@ export default function AdminEmployeesPage() {
               <span className="font-semibold text-sm text-slate-900 truncate">{emp.name}</span>
               {linkedUser && (
                 <>
-                  {linkedUser.role === 'admin' && (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
-                      <Crown size={10} /> Admin
+                  {(linkedUser.role === 'admin' || linkedUser.role === 'payroll_admin') && (
+                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      linkedUser.role === 'payroll_admin'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      <Crown size={10} /> {linkedUser.role === 'payroll_admin' ? 'Mzdy' : 'Admin'}
                     </span>
                   )}
                   {linkedUser.isOnline && (
@@ -341,7 +345,7 @@ export default function AdminEmployeesPage() {
                 <Link2Off size={14} />
               </button>
             )}
-            {linkedUser && linkedUser.role !== 'admin' && (
+            {linkedUser && linkedUser.role !== 'admin' && linkedUser.role !== 'payroll_admin' && (
               <button
                 onClick={(e) => { e.stopPropagation(); updateUserRole(linkedUser.uid, 'admin'); }}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"

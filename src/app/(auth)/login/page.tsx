@@ -112,10 +112,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200 mb-4">
-            <span className="text-2xl font-black text-white">I</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <img
+            src="/favicon_io/android-chrome-512x512.png"
+            alt="Inkio CRM"
+            className="w-16 h-16 rounded-2xl shadow-lg shadow-blue-200 mb-4 mx-auto"
+          />
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             Inkio CRM
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">

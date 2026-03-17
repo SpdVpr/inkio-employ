@@ -62,7 +62,7 @@ interface DragData {
 }
 
 export default function DashboardPage() {
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, isPayrollAdmin } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [employees, setEmployees] = useState<Employee[]>(defaultEmployees);
@@ -81,6 +81,13 @@ export default function DashboardPage() {
     return 'company';
   });
   const [selectedDay, setSelectedDay] = useState(new Date());
+
+  // Payroll admin always starts with company view
+  useEffect(() => {
+    if (isPayrollAdmin) {
+      setViewMode('company');
+    }
+  }, [isPayrollAdmin]);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false, employee: null, date: null, initialContent: ''
   });

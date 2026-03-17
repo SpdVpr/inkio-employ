@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { signOut, UserProfile } from '@/lib/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -19,14 +18,13 @@ import {
   UserCircle,
   Settings,
   LogOut,
-  Sun,
-  Moon,
   ChevronLeft,
   ChevronRight,
   Menu,
   X,
   Circle,
-  CalendarDays
+  CalendarDays,
+  DollarSign
 } from 'lucide-react';
 
 interface NavItem {
@@ -43,7 +41,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Profil', href: '/profile', icon: <UserCircle size={20} /> },
 ];
 
-const ADMIN_ITEMS: NavItem[] = [
+// Items visible only to main admin (NOT payroll admin)
+const MAIN_ADMIN_ITEMS: NavItem[] = [
   { label: 'Zaměstnanci', href: '/admin/employees', icon: <Users size={20} />, adminOnly: true },
   { label: 'Firmy', href: '/admin/companies', icon: <Building2 size={20} />, adminOnly: true },
   { label: 'Statistiky', href: '/admin/statistics', icon: <BarChart3 size={20} />, adminOnly: true },
@@ -52,10 +51,19 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: 'Nastavení', href: '/admin', icon: <Settings size={20} />, adminOnly: true },
 ];
 
+// Items visible only to payroll admin
+const PAYROLL_ADMIN_ITEMS: NavItem[] = [
+  { label: 'Zaměstnanci', href: '/admin/employees', icon: <Users size={20} />, adminOnly: true },
+  { label: 'Firmy', href: '/admin/companies', icon: <Building2 size={20} />, adminOnly: true },
+  { label: 'Mzdy & Statistiky', href: '/admin/statistics', icon: <DollarSign size={20} />, adminOnly: true },
+  { label: 'Firmy - přehled', href: '/admin/company-stats', icon: <Building2 size={20} />, adminOnly: true },
+  { label: 'Plán úkolů', href: '/admin/tasks', icon: <ClipboardList size={20} />, adminOnly: true },
+  { label: 'Nastavení', href: '/admin', icon: <Settings size={20} />, adminOnly: true },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
-  const { userProfile, isAdmin } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { userProfile, isAdmin, isPayrollAdmin, isMainAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
@@ -103,6 +111,9 @@ export default function Sidebar() {
     return pathname.startsWith(href);
   };
 
+  // Determine which admin items to show
+  const adminItems = isPayrollAdmin ? PAYROLL_ADMIN_ITEMS : MAIN_ADMIN_ITEMS;
+
   const renderNavItem = (item: NavItem) => (
     <Link
       key={item.href}
@@ -126,6 +137,12 @@ export default function Sidebar() {
     </Link>
   );
 
+  const getRoleLabel = () => {
+    if (isPayrollAdmin) return 'Mzdový admin';
+    if (isMainAdmin) return 'Admin';
+    return userProfile?.position || 'Zaměstnanec';
+  };
+
   const sidebarContent = (
     <>
       {/* Logo */}
@@ -137,8 +154,8 @@ export default function Sidebar() {
         />
         {!collapsed && (
           <div className="min-w-0">
-            <h1 className="text-sm font-bold text-slate-900 dark:text-white truncate">Inkio CRM</h1>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Management systém</p>
+            <h1 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>Inkio CRM</h1>
+            <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Management systém</p>
           </div>
         )}
       </div>
@@ -151,16 +168,16 @@ export default function Sidebar() {
         {isAdmin && (
           <>
             <div className={`sidebar-section-label ${collapsed ? 'text-center' : ''}`}>
-              {collapsed ? '—' : 'Administrace'}
+              {collapsed ? '—' : isPayrollAdmin ? 'Mzdy' : 'Administrace'}
             </div>
-            {ADMIN_ITEMS.map(renderNavItem)}
+            {adminItems.map(renderNavItem)}
           </>
         )}
       </nav>
 
       {/* Online users */}
       {!collapsed && (() => {
-        const visibleOnline = onlineUsers.filter(u => u.role !== 'admin');
+        const visibleOnline = onlineUsers.filter(u => u.role !== 'admin' && u.role !== 'payroll_admin');
         if (visibleOnline.length === 0) return null;
         return (
           <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
@@ -184,16 +201,8 @@ export default function Sidebar() {
         );
       })()}
 
-      {/* User profile + theme + collapse */}
+      {/* User profile + collapse */}
       <div className="sidebar-footer">
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="sidebar-footer-btn"
-          title={theme === 'light' ? 'Tmavý režim' : 'Světlý režim'}
-        >
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
 
         {/* User */}
         {!collapsed && userProfile && (
@@ -202,7 +211,7 @@ export default function Sidebar() {
               {userProfile.displayName}
             </p>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-              {userProfile.role === 'admin' ? 'Admin' : userProfile.position || 'Zaměstnanec'}
+              {getRoleLabel()}
             </p>
           </div>
         )}

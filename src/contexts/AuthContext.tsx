@@ -12,7 +12,9 @@ import {
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
-  isAdmin: boolean;
+  isAdmin: boolean;           // true for both 'admin' and 'payroll_admin'
+  isPayrollAdmin: boolean;    // true only for 'payroll_admin'
+  isMainAdmin: boolean;       // true only for 'admin' (not payroll)
   loading: boolean;
 }
 
@@ -20,6 +22,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   isAdmin: false,
+  isPayrollAdmin: false,
+  isMainAdmin: false,
   loading: true
 });
 
@@ -83,10 +87,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [user]);
 
-  const isAdmin = userProfile?.role === 'admin';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'payroll_admin';
+  const isPayrollAdmin = userProfile?.role === 'payroll_admin';
+  const isMainAdmin = userProfile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, isAdmin, isPayrollAdmin, isMainAdmin, loading }}>
       {children}
     </AuthContext.Provider>
   );

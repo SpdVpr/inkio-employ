@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToEmployees, EmployeeDocument, updateEmployeeHourlyRate } from '@/lib/employees';
 import { getMonthlyEmployeeStats, MonthlyEmployeeStats } from '@/lib/database';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -14,6 +15,7 @@ const CHART_COLORS = [
 const DEFAULT_RATE = 250;
 
 export default function AdminStatisticsPage() {
+  const { isPayrollAdmin } = useAuth();
   const [employees, setEmployees] = useState<EmployeeDocument[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyEmployeeStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,36 +93,60 @@ export default function AdminStatisticsPage() {
   const activeEmployees = monthlyStats.filter(s => s.totalHours > 0).length;
   const avgCompletionRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
 
-  // Per-employee hourly rate lookup
-  const getRate = useCallback((employeeName: string) => {
-    const emp = employees.find(e => e.name === employeeName);
-    return emp?.hourlyRate || DEFAULT_RATE;
+  // Per-employee hourly rate lookup (case-insensitive, trimmed)
+  const findEmployee = useCallback((employeeName: string) => {
+    const normalizedName = employeeName.trim().toLowerCase();
+    return employees.find(e => e.name.trim().toLowerCase() === normalizedName);
   }, [employees]);
 
+  const getRate = useCallback((employeeName: string) => {
+    const emp = findEmployee(employeeName);
+    return emp?.hourlyRate || DEFAULT_RATE;
+  }, [findEmployee]);
+
   const getEmployeeId = useCallback((employeeName: string) => {
-    return employees.find(e => e.name === employeeName)?.id;
-  }, [employees]);
+    const emp = findEmployee(employeeName);
+    if (!emp) {
+      console.warn(`[Sazba] Zaměstnanec "${employeeName}" nenalezen v employees kolekci. Dostupní:`, employees.map(e => e.name));
+    }
+    return emp?.id;
+  }, [findEmployee, employees]);
 
   const totalSalary = useMemo(() =>
     monthlyStats.reduce((sum, s) => sum + Math.round(s.totalHours * getRate(s.employeeName)), 0),
     [monthlyStats, getRate]);
 
+  const [savingRate, setSavingRate] = useState<string | null>(null);
+
   const handleRateChange = async (employeeName: string, newRate: number) => {
     const empId = getEmployeeId(employeeName);
-    if (!empId) return;
+    if (!empId) {
+      alert(`Zaměstnanec "${employeeName}" nebyl nalezen. Sazbu nelze uložit.`);
+      return;
+    }
+    setSavingRate(employeeName);
     try {
       await updateEmployeeHourlyRate(empId, newRate);
+      console.log(`[Sazba] Uloženo: ${employeeName} = ${newRate} Kč/h (doc: ${empId})`);
     } catch (error) {
       console.error('Failed to save rate:', error);
+      alert(`Chyba při ukládání sazby: ${error}`);
+    } finally {
+      setSavingRate(null);
     }
   };
 
   return (
     <div className="w-full max-w-[1400px]">
       <div className="mb-6">
-        <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Statistiky</h1>
+        <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          {isPayrollAdmin ? 'Mzdy & Statistiky' : 'Statistiky'}
+        </h1>
         <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          Přehled odpracovaných hodin, úkolů a mezd
+          {isPayrollAdmin 
+            ? 'Přehled odpracovaných hodin, úkolů a kompletní správa mezd'
+            : 'Přehled odpracovaných hodin a úkolů'
+          }
         </p>
       </div>
 
@@ -131,7 +157,7 @@ export default function AdminStatisticsPage() {
       </div>
 
       {/* Summary cards - top row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${isPayrollAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3 mb-3`}>
         <div className="dashboard-card">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
@@ -176,17 +202,19 @@ export default function AdminStatisticsPage() {
             </div>
           </div>
         </div>
-        <div className="dashboard-card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
-              <DollarSign size={20} />
-            </div>
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Celk. mzdy</p>
-              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalSalary.toLocaleString('cs-CZ')}</p>
+        {isPayrollAdmin && (
+          <div className="dashboard-card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
+                <DollarSign size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Celk. mzdy</p>
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalSalary.toLocaleString('cs-CZ')}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Office / Home summary cards */}
@@ -333,104 +361,106 @@ export default function AdminStatisticsPage() {
             </div>
           </div>
 
-          {/* Payroll summary */}
-          <div className="dashboard-card mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                <DollarSign size={16} /> Mzdový přehled
-              </h3>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Hodinovou sazbu lze editovat u každého zaměstnance</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Zaměstnanec</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Hodiny</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dny</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#3b82f6' }}>🏢</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#f59e0b' }}>🏠</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Úkoly</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dokončeno</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Sazba/h</th>
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Mzda (Kč)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthlyStats
-                    .sort((a, b) => b.totalHours - a.totalHours)
-                    .map((stat, i) => {
-                    const rate = getRate(stat.employeeName);
-                    const salary = Math.round(stat.totalHours * rate);
-                    return (
-                    <tr key={stat.employeeName} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-bold"
-                            style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
-                            {stat.employeeName.charAt(0)}
+          {/* Payroll summary - ONLY for payroll admin */}
+          {isPayrollAdmin && (
+            <div className="dashboard-card mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                  <DollarSign size={16} /> Mzdový přehled
+                </h3>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Hodinovou sazbu lze editovat u každého zaměstnance</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Zaměstnanec</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Hodiny</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dny</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#3b82f6' }}>🏢</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#f59e0b' }}>🏠</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Úkoly</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dokončeno</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Sazba/h</th>
+                      <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Mzda (Kč)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyStats
+                      .sort((a, b) => b.totalHours - a.totalHours)
+                      .map((stat, i) => {
+                      const rate = getRate(stat.employeeName);
+                      const salary = Math.round(stat.totalHours * rate);
+                      return (
+                      <tr key={stat.employeeName} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-bold"
+                              style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
+                              {stat.employeeName.charAt(0)}
+                            </div>
+                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{stat.employeeName}</span>
                           </div>
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{stat.employeeName}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {Math.round(stat.totalHours * 10) / 10}h
-                      </td>
-                      <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>
-                        {stat.daysWorked}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#3b82f6' }}>
-                        {stat.officeDays || '—'}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#f59e0b' }}>
-                        {stat.homeofficeDays || '—'}
-                      </td>
-                      <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>
-                        {stat.totalTasks}
-                      </td>
-                      <td className="py-2.5 px-3 text-right" style={{ color: stat.totalTasks > 0 && stat.completedTasks / stat.totalTasks >= 0.8 ? '#22c55e' : 'var(--text-secondary)' }}>
-                        {stat.completedTasks}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <input
-                          type="number"
-                          defaultValue={rate}
-                          onBlur={(e) => {
-                            const val = Number(e.target.value) || DEFAULT_RATE;
-                            if (val !== rate) handleRateChange(stat.employeeName, val);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          }}
-                          className="form-input"
-                          style={{ width: 70, padding: '2px 6px', fontSize: 12, textAlign: 'right' }}
-                        />
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--primary)' }}>
-                        {salary.toLocaleString('cs-CZ')}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {Math.round(stat.totalHours * 10) / 10}h
+                        </td>
+                        <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>
+                          {stat.daysWorked}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#3b82f6' }}>
+                          {stat.officeDays || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#f59e0b' }}>
+                          {stat.homeofficeDays || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>
+                          {stat.totalTasks}
+                        </td>
+                        <td className="py-2.5 px-3 text-right" style={{ color: stat.totalTasks > 0 && stat.completedTasks / stat.totalTasks >= 0.8 ? '#22c55e' : 'var(--text-secondary)' }}>
+                          {stat.completedTasks}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <input
+                            type="number"
+                            defaultValue={rate}
+                            onBlur={(e) => {
+                              const val = Number(e.target.value) || DEFAULT_RATE;
+                              if (val !== rate) handleRateChange(stat.employeeName, val);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            }}
+                            className="form-input"
+                            style={{ width: 70, padding: '2px 6px', fontSize: 12, textAlign: 'right' }}
+                          />
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--primary)' }}>
+                          {salary.toLocaleString('cs-CZ')}
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid var(--border)' }}>
+                      <td className="py-2.5 px-3 font-bold" style={{ color: 'var(--text-primary)' }}>Celkem</td>
+                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--primary)' }}>{totalHours}h</td>
+                      <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: '#3b82f6' }}>{totalOfficeDays}</td>
+                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: '#f59e0b' }}>{totalHomeDays}</td>
+                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--text-primary)' }}>{totalTasks}</td>
+                      <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--text-primary)' }}>{totalCompleted}</td>
+                      <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-base" style={{ color: 'var(--primary)' }}>
+                        {totalSalary.toLocaleString('cs-CZ')} Kč
                       </td>
                     </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop: '2px solid var(--border)' }}>
-                    <td className="py-2.5 px-3 font-bold" style={{ color: 'var(--text-primary)' }}>Celkem</td>
-                    <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--primary)' }}>{totalHours}h</td>
-                    <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
-                    <td className="py-2.5 px-3 text-right font-bold" style={{ color: '#3b82f6' }}>{totalOfficeDays}</td>
-                    <td className="py-2.5 px-3 text-right font-bold" style={{ color: '#f59e0b' }}>{totalHomeDays}</td>
-                    <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--text-primary)' }}>{totalTasks}</td>
-                    <td className="py-2.5 px-3 text-right font-bold" style={{ color: 'var(--text-primary)' }}>{totalCompleted}</td>
-                    <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-base" style={{ color: 'var(--primary)' }}>
-                      {totalSalary.toLocaleString('cs-CZ')} Kč
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 

@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { usePathname } from 'next/navigation';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Sun, Moon } from 'lucide-react';
 import Link from 'next/link';
 import { useChatNotificationContext } from '@/contexts/ChatNotificationContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -21,6 +22,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function TopBar() {
   const { userProfile } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
   const { totalUnread } = useChatNotificationContext();
 
@@ -30,7 +32,7 @@ export default function TopBar() {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+          <h2 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
             {title}
           </h2>
         </div>
@@ -52,6 +54,15 @@ export default function TopBar() {
 
           {/* Notifications */}
           <NotificationBell />
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="topbar-btn"
+            title={theme === 'light' ? 'Tmavý režim' : 'Světlý režim'}
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
 
           {/* User avatar */}
           {userProfile && (
