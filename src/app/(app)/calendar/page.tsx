@@ -502,7 +502,7 @@ export default function DashboardPage() {
 
             {/* Absent banner */}
             {isAbsent && (
-              <div className="dash-absent-banner" style={isVacation ? { background: '#fef3c7', color: '#92400e' } : undefined}>
+              <div className={`dash-absent-banner ${isVacation ? 'dash-absent-banner--vacation' : ''}`}>
                 <span>
                   {isVacation ? '🏖️ Dnes máte dovolenou' : '🚫 Dnes jste nepřítomný/á'}
                   {isHalfDay && (

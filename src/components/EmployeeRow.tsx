@@ -208,26 +208,33 @@ export default function EmployeeRow({
           >
             <div className="h-[235px] px-2 py-1.5 text-sm text-slate-800 relative overflow-hidden flex flex-col w-full">
 
-              {/* Absence overlay — centered in the full cell.
-                  For half-days the colored band covers only the relevant half. */}
+              {/* Absence overlay — barevný pás (celý/horní/dolní) + popisek uprostřed */}
               {isAbsent && (
-                <div
-                  className={`absolute inset-0 flex items-center justify-center z-[1]`}
-                  style={(() => {
-                    const baseColor = isVacation ? '#fef3c7' : '#fee2e2'; // amber-100 / red-100 light
-                    if (absenceHalf === 'full') return { background: baseColor };
-                    if (absenceHalf === 'am') {
-                      return { background: `linear-gradient(180deg, ${baseColor} 0%, ${baseColor} 50%, transparent 50%, transparent 100%)` };
-                    }
-                    return { background: `linear-gradient(180deg, transparent 0%, transparent 50%, ${baseColor} 50%, ${baseColor} 100%)` };
-                  })()}
-                >
-                  <span className={`px-3 py-1 text-xs font-semibold rounded-lg ${isVacation
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-red-100 text-red-500'
-                    }`}>
-                    {isVacation ? '🏖️' : '🚫'} {isVacation ? 'Dovolená' : 'Nepřítomen'}{isHalfDay ? ` ½ ${absenceHalf === 'am' ? 'dop.' : 'odp.'}` : ''}
-                  </span>
+                <div className="absolute inset-0 z-[1]">
+                  <div
+                    className={`absolute left-0 right-0 ${
+                      absenceHalf === 'full'
+                        ? 'inset-y-0'
+                        : absenceHalf === 'am'
+                          ? 'top-0 h-1/2'
+                          : 'bottom-0 h-1/2'
+                    } ${
+                      isVacation
+                        ? 'bg-amber-100 dark:bg-amber-500/15'
+                        : 'bg-red-100 dark:bg-red-500/15'
+                    }`}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg ${
+                        isVacation
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-200'
+                          : 'bg-red-100 text-red-500 dark:bg-red-500/25 dark:text-red-200'
+                      }`}
+                    >
+                      {isVacation ? '🏖️' : '🚫'} {isVacation ? 'Dovolená' : 'Nepřítomen'}{isHalfDay ? ` ½ ${absenceHalf === 'am' ? 'dop.' : 'odp.'}` : ''}
+                    </span>
+                  </div>
                 </div>
               )}
 

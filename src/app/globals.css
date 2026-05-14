@@ -2188,6 +2188,24 @@ body {
   margin-bottom: 16px;
 }
 
+.dash-absent-banner--vacation {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.dark .dash-absent-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.dark .dash-absent-banner--vacation {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
 .dash-absent-undo {
   padding: 6px 16px;
   border-radius: 10px;
