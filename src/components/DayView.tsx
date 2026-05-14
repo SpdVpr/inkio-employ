@@ -4,6 +4,7 @@ import { Employee, formatDate, formatDayName, formatDateDisplay } from '@/lib/ut
 import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes, AbsenceType, AbsenceHalf } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
+import AbsenceButton from './AbsenceButton';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
 import { Clock } from 'lucide-react';
 
@@ -147,58 +148,43 @@ export default function DayView({
             </button>
           </div>
 
-          {/* Vacation toggle */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, isVacation ? null : 'vacation', isVacation ? 'full' : absenceHalf);
-              else if (!isAbsent) onAbsenceToggle(employee, selectedDate);
+          {/* Vacation picker */}
+          <AbsenceButton
+            kind="vacation"
+            currentType={absenceType}
+            currentHalf={absenceHalf}
+            onSelect={(type, half) => {
+              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, type, half);
+              else if (type === 'absent' || (type === null && absenceType === 'absent') || (!isAbsent && type === 'vacation')) onAbsenceToggle(employee, selectedDate);
             }}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+            buttonClassName={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
               isVacation
                 ? 'bg-amber-100 text-amber-700 border-amber-300'
                 : 'bg-white text-slate-400 border-slate-200 hover:border-amber-300 hover:text-amber-600'
             }`}
-            title="Dovolená"
-          >
-            🏖️ Dovolená{isVacation && absenceHalf !== 'full' ? ` ½` : ''}
-          </button>
+            buttonTitle="Dovolená"
+            buttonContent={<>🏖️ Dovolená{isVacation && absenceHalf !== 'full' ? ` ½ ${absenceHalf === 'am' ? 'dop.' : 'odp.'}` : ''}</>}
+            align="right"
+          />
 
-          {/* Absence toggle */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, absenceType === 'absent' ? null : 'absent', absenceType === 'absent' ? 'full' : absenceHalf);
+          {/* Absence picker */}
+          <AbsenceButton
+            kind="absent"
+            currentType={absenceType}
+            currentHalf={absenceHalf}
+            onSelect={(type, half) => {
+              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, type, half);
               else onAbsenceToggle(employee, selectedDate);
             }}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+            buttonClassName={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
               absenceType === 'absent'
                 ? 'bg-red-100 text-red-600 border-red-300'
                 : 'bg-white text-slate-400 border-slate-200 hover:border-red-300 hover:text-red-500'
             }`}
-          >
-            🚫 Nepřítomen{absenceType === 'absent' && absenceHalf !== 'full' ? ` ½` : ''}
-          </button>
-
-          {/* Půldenní sub-přepínač */}
-          {isAbsent && onAbsenceTypeChange && (
-            <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
-              {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => (
-                <button
-                  key={h}
-                  onClick={() => onAbsenceTypeChange(employee, selectedDate, absenceType, h)}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors border ${
-                    absenceHalf === h
-                      ? isVacation ? 'bg-amber-200 text-amber-800 border-amber-400' : 'bg-red-200 text-red-800 border-red-400'
-                      : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
-                  }`}
-                  title={h === 'full' ? 'Celý den' : h === 'am' ? 'Dopoledne' : 'Odpoledne'}
-                >
-                  {h === 'full' ? 'Celý' : h === 'am' ? 'Dop' : 'Odp'}
-                </button>
-              ))}
-            </div>
-          )}
+            buttonTitle="Nepřítomen"
+            buttonContent={<>🚫 Nepřítomen{absenceType === 'absent' && absenceHalf !== 'full' ? ` ½ ${absenceHalf === 'am' ? 'dop.' : 'odp.'}` : ''}</>}
+            align="right"
+          />
         </div>
 
         {/* Content area - click to open modal */}

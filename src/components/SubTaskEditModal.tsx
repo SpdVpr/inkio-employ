@@ -6,6 +6,7 @@ import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStat
 import { addDays } from 'date-fns';
 import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes, AbsenceType, AbsenceHalf } from '@/lib/database';
 import ProgressBar from './ProgressBar';
+import AbsenceButton from './AbsenceButton';
 import TimeInput from './TimeInput';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
 import { createNotification, createBroadcastNotification } from '@/lib/notifications';
@@ -284,9 +285,9 @@ export default function SubTaskEditModal({
           </button>
         </div>
 
-        {/* Absence selector: Pracuje / Dovolená / Nepřítomen + půldny */}
+        {/* Absence selector: Pracuje / Dovolená / Nepřítomen (popover pro půlden) */}
         <div className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-50/50 border-b border-slate-100">
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="flex items-center justify-center gap-1.5 flex-wrap">
             <button
               onClick={() => setAbsence(null)}
               className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
@@ -297,49 +298,31 @@ export default function SubTaskEditModal({
             >
               ✅ Pracuje
             </button>
-            <button
-              onClick={() => setAbsence('vacation', isVacation ? effectiveHalf : 'full')}
-              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+            <AbsenceButton
+              kind="vacation"
+              currentType={effectiveAbsenceType}
+              currentHalf={effectiveHalf}
+              onSelect={(t, h) => setAbsence(t, h)}
+              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
                 isVacation
                   ? 'bg-amber-100 text-amber-700 border-amber-300'
                   : 'bg-white text-slate-500 hover:bg-amber-50 border-slate-200'
               }`}
-            >
-              🏖️ Dovolená{isVacation && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}
-            </button>
-            <button
-              onClick={() => setAbsence('absent', isAbsentOnly ? effectiveHalf : 'full')}
-              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+              buttonContent={<>🏖️ Dovolená{isVacation && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}</>}
+            />
+            <AbsenceButton
+              kind="absent"
+              currentType={effectiveAbsenceType}
+              currentHalf={effectiveHalf}
+              onSelect={(t, h) => setAbsence(t, h)}
+              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
                 isAbsentOnly
                   ? 'bg-red-100 text-red-700 border-red-300'
                   : 'bg-white text-slate-500 hover:bg-red-50 border-slate-200'
               }`}
-            >
-              🚫 Nepřítomen{isAbsentOnly && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}
-            </button>
+              buttonContent={<>🚫 Nepřítomen{isAbsentOnly && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}</>}
+            />
           </div>
-
-          {/* Půldenní sub-přepínač */}
-          {effectiveAbsenceType !== null && (
-            <div className="mt-2 flex items-center justify-center gap-1.5">
-              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mr-1">Rozsah</span>
-              {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => (
-                <button
-                  key={h}
-                  onClick={() => setAbsence(effectiveAbsenceType, h)}
-                  className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors border ${
-                    effectiveHalf === h
-                      ? isVacation
-                        ? 'bg-amber-200 text-amber-800 border-amber-400'
-                        : 'bg-red-200 text-red-800 border-red-400'
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {h === 'full' ? 'Celý den' : h === 'am' ? '½ dopoledne' : '½ odpoledne'}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Progress */}

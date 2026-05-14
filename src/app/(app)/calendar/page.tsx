@@ -34,6 +34,7 @@ import { subscribeToEmployees, EmployeeDocument } from '@/lib/employees';
 import { showCompletionToast, showTimeWarningToast } from '@/components/CompletionToast';
 import SubTaskList from '@/components/SubTaskList';
 import ProgressBar from '@/components/ProgressBar';
+import AbsenceButton from '@/components/AbsenceButton';
 import {
   CalendarDays, ChevronLeft, ChevronRight,
   Calendar, Clock, Users, User, Building2, Plus,
@@ -477,19 +478,25 @@ export default function DashboardPage() {
                     <Home size={13} /> Homeoffice
                   </button>
                 </div>
-                <button
-                  onClick={() => handleAbsenceTypeChange(myEmployee, selectedDay, 'vacation')}
-                  className="dash-absence-btn"
-                  style={{ color: '#d97706', borderColor: '#fde68a' }}
-                >
-                  🏖️ Dovolená
-                </button>
-                <button
-                  onClick={() => handleAbsenceTypeChange(myEmployee, selectedDay, 'absent')}
-                  className="dash-absence-btn"
-                >
-                  <XCircle size={13} /> Nepřítomen
-                </button>
+                <AbsenceButton
+                  kind="vacation"
+                  currentType={myAbsenceType}
+                  currentHalf={myAbsenceHalf}
+                  onSelect={(type, half) => handleAbsenceTypeChange(myEmployee, selectedDay, type, half)}
+                  buttonClassName="dash-absence-btn"
+                  buttonStyle={{ color: '#d97706', borderColor: '#fde68a' }}
+                  buttonContent={<>🏖️ Dovolená</>}
+                  align="right"
+                />
+                <AbsenceButton
+                  kind="absent"
+                  currentType={myAbsenceType}
+                  currentHalf={myAbsenceHalf}
+                  onSelect={(type, half) => handleAbsenceTypeChange(myEmployee, selectedDay, type, half)}
+                  buttonClassName="dash-absence-btn"
+                  buttonContent={<><XCircle size={13} /> Nepřítomen</>}
+                  align="right"
+                />
               </div>
             )}
 
@@ -666,20 +673,26 @@ export default function DashboardPage() {
                     >
                       🏠 Home
                     </button>
-                    <button
-                      onClick={() => handleAbsenceTypeChange(myEmployee, date, 'vacation')}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-600"
-                      title="Dovolená"
-                    >
-                      🏖️
-                    </button>
-                    <button
-                      onClick={() => handleAbsenceTypeChange(myEmployee, date, 'absent')}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500"
-                      title="Nepřítomen"
-                    >
-                      🚫
-                    </button>
+                    <AbsenceButton
+                      kind="vacation"
+                      currentType={dayAbsType}
+                      currentHalf={dayAbsHalf}
+                      onSelect={(type, half) => handleAbsenceTypeChange(myEmployee, date, type, half)}
+                      buttonClassName="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-600"
+                      buttonTitle="Dovolená"
+                      buttonContent={<>🏖️</>}
+                      align="right"
+                    />
+                    <AbsenceButton
+                      kind="absent"
+                      currentType={dayAbsType}
+                      currentHalf={dayAbsHalf}
+                      onSelect={(type, half) => handleAbsenceTypeChange(myEmployee, date, type, half)}
+                      buttonClassName="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500"
+                      buttonTitle="Nepřítomen"
+                      buttonContent={<>🚫</>}
+                      align="right"
+                    />
                   </div>
                 )}
 

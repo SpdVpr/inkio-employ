@@ -330,61 +330,69 @@ export default function EmployeeRow({
                   </button>
                 ))}
                 <div className="border-t border-slate-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onAbsenceTypeChange) {
-                        onAbsenceTypeChange(employee, date, isVacation ? null : 'vacation', isVacation ? 'full' : absenceHalf);
-                      } else if (!isAbsent) {
-                        onAbsenceToggle(employee, date);
-                      }
-                      setShowStatusMenu(null);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${isVacation ? 'bg-amber-50 text-amber-700' : 'text-amber-600 hover:bg-amber-50'}`}
-                  >
-                    <span>🏖️</span>
-                    <span>{isVacation ? 'Zrušit dovolenou' : 'Dovolená'}</span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onAbsenceTypeChange) {
-                        onAbsenceTypeChange(employee, date, absenceType === 'absent' ? null : 'absent', absenceType === 'absent' ? 'full' : absenceHalf);
-                      } else {
-                        onAbsenceToggle(employee, date);
-                      }
-                      setShowStatusMenu(null);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${absenceType === 'absent' ? 'bg-red-50 text-red-700' : 'text-red-600 hover:bg-red-50'}`}
-                  >
-                    <span>🚫</span>
-                    <span>{absenceType === 'absent' ? 'Zrušit nepřítomnost' : 'Nepřítomen'}</span>
-                  </button>
-
-                  {/* Půldenní sub-přepínač — zobrazený jen když je absence aktivní */}
-                  {isAbsent && onAbsenceTypeChange && (
-                    <div className="border-t border-slate-100 px-3 py-1.5 bg-slate-50/50">
-                      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rozsah</div>
-                      <div className="flex gap-1">
-                        {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => (
+                  {/* Dovolená — tři volby přímo */}
+                  <div className="px-3 py-1.5">
+                    <div className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span>🏖️</span><span>Dovolená</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => {
+                        const isSelected = isVacation && absenceHalf === h;
+                        return (
                           <button
                             key={h}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onAbsenceTypeChange(employee, date, absenceType, h);
+                              if (onAbsenceTypeChange) {
+                                onAbsenceTypeChange(employee, date, isSelected ? null : 'vacation', isSelected ? 'full' : h);
+                              } else if (!isAbsent) {
+                                onAbsenceToggle(employee, date);
+                              }
                               setShowStatusMenu(null);
                             }}
-                            className={`flex-1 px-1 py-0.5 text-[10px] rounded font-semibold transition-colors ${absenceHalf === h
-                              ? isVacation ? 'bg-amber-200 text-amber-800' : 'bg-red-200 text-red-800'
-                              : 'text-slate-500 hover:bg-white border border-slate-200'
+                            className={`flex-1 px-1 py-0.5 text-[10px] rounded font-semibold transition-colors ${isSelected
+                              ? 'bg-amber-200 text-amber-800 border border-amber-400'
+                              : 'text-slate-500 hover:bg-amber-50 border border-slate-200'
                               }`}
                           >
                             {h === 'full' ? 'Celý' : h === 'am' ? '½ dop' : '½ odp'}
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Nepřítomen — tři volby přímo */}
+                  <div className="px-3 py-1.5 border-t border-slate-100">
+                    <div className="text-[9px] font-bold text-red-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span>🚫</span><span>Nepřítomen</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => {
+                        const isSelected = absenceType === 'absent' && absenceHalf === h;
+                        return (
+                          <button
+                            key={h}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onAbsenceTypeChange) {
+                                onAbsenceTypeChange(employee, date, isSelected ? null : 'absent', isSelected ? 'full' : h);
+                              } else {
+                                onAbsenceToggle(employee, date);
+                              }
+                              setShowStatusMenu(null);
+                            }}
+                            className={`flex-1 px-1 py-0.5 text-[10px] rounded font-semibold transition-colors ${isSelected
+                              ? 'bg-red-200 text-red-800 border border-red-400'
+                              : 'text-slate-500 hover:bg-red-50 border border-slate-200'
+                              }`}
+                          >
+                            {h === 'full' ? 'Celý' : h === 'am' ? '½ dop' : '½ odp'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
