@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToEmployees, EmployeeDocument, updateEmployeeHourlyRate } from '@/lib/employees';
-import { getMonthlyEmployeeStats, MonthlyEmployeeStats } from '@/lib/database';
+import { getMonthlyEmployeeStats, MonthlyEmployeeStats, getYearlyAbsenceStats, YearlyAbsenceStats } from '@/lib/database';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { BarChart3, Clock, Users, TrendingUp, ChevronLeft, ChevronRight, CheckCircle, DollarSign, Building2, Home } from 'lucide-react';
+import { BarChart3, Clock, Users, TrendingUp, ChevronLeft, ChevronRight, CheckCircle, DollarSign, Building2, Home, TreePalm, CalendarOff, CalendarDays } from 'lucide-react';
 
 const CHART_COLORS = [
   '#1765F2', '#1765F2', '#ec4899', '#ef4444', '#f97316',
@@ -18,6 +18,7 @@ export default function AdminStatisticsPage() {
   const { isPayrollAdmin } = useAuth();
   const [employees, setEmployees] = useState<EmployeeDocument[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyEmployeeStats[]>([]);
+  const [yearlyAbsence, setYearlyAbsence] = useState<YearlyAbsenceStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -34,8 +35,12 @@ export default function AdminStatisticsPage() {
       setLoading(true);
       try {
         const [year, month] = selectedMonth.split('-').map(Number);
-        const stats = await getMonthlyEmployeeStats(year, month);
+        const [stats, absStats] = await Promise.all([
+          getMonthlyEmployeeStats(year, month),
+          getYearlyAbsenceStats(year),
+        ]);
         setMonthlyStats(stats);
+        setYearlyAbsence(absStats);
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -79,6 +84,79 @@ export default function AdminStatisticsPage() {
       office: s.officeDays,
       home: s.homeofficeDays,
     })), [monthlyStats]);
+
+  // Vacation/absence aggregates
+  const selectedYear = useMemo(() => parseInt(selectedMonth.split('-')[0], 10), [selectedMonth]);
+  const selectedMonthIdx = useMemo(() => parseInt(selectedMonth.split('-')[1], 10) - 1, [selectedMonth]);
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  // Build a per-employee absence overview combining yearly stats with allowance
+  const absenceOverview = useMemo(() => {
+    // Build a complete list — include every employee even if no absence yet
+    const overviewByName: Record<string, YearlyAbsenceStats> = {};
+    yearlyAbsence.forEach(a => { overviewByName[a.employeeName] = a; });
+
+    return employees.map(emp => {
+      const stats = overviewByName[emp.name];
+      const allowance = emp.vacationAllowance ?? 25;
+      const taken = stats?.takenVacationDays ?? 0;
+      const planned = stats?.plannedVacationDays ?? 0;
+      const total = taken + planned;
+      const remaining = Math.max(0, allowance - total);
+      const thisMonthVacation = stats?.monthlyVacation?.[selectedMonthIdx] ?? 0;
+      const thisMonthAbsent = stats?.monthlyAbsent?.[selectedMonthIdx] ?? 0;
+      const vacationDatesThisMonth = (stats?.vacationDates ?? []).filter(d => {
+        const m = parseInt(d.slice(5, 7), 10) - 1;
+        return m === selectedMonthIdx;
+      });
+
+      return {
+        employeeName: emp.name,
+        employeeType: emp.type,
+        allowance,
+        taken,
+        planned,
+        total,
+        remaining,
+        absentTotal: stats?.absentDays ?? 0,
+        thisMonthVacation,
+        thisMonthAbsent,
+        vacationDatesThisMonth,
+        allVacationDates: stats?.vacationDates ?? [],
+        monthlyVacation: stats?.monthlyVacation ?? Array(12).fill(0),
+        monthlyAbsent: stats?.monthlyAbsent ?? Array(12).fill(0),
+      };
+    });
+  }, [yearlyAbsence, employees, selectedMonthIdx]);
+
+  // Upcoming/planned vacations — flatten across employees, sort by date
+  const upcomingVacations = useMemo(() => {
+    const rows: { employeeName: string; date: string }[] = [];
+    yearlyAbsence.forEach(stats => {
+      stats.vacationDates.forEach(d => {
+        if (d > todayStr) rows.push({ employeeName: stats.employeeName, date: d });
+      });
+    });
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+    return rows.slice(0, 50); // cap for UI
+  }, [yearlyAbsence, todayStr]);
+
+  // Team totals for the selected month
+  const totalVacationThisMonth = useMemo(() =>
+    absenceOverview.reduce((sum, a) => sum + a.thisMonthVacation, 0), [absenceOverview]);
+  const totalAbsentThisMonth = useMemo(() =>
+    absenceOverview.reduce((sum, a) => sum + a.thisMonthAbsent, 0), [absenceOverview]);
+  const totalPlannedVacation = useMemo(() =>
+    absenceOverview.reduce((sum, a) => sum + a.planned, 0), [absenceOverview]);
+
+  // Format date helper: YYYY-MM-DD -> "12.5."
+  const formatShortDate = (iso: string) => {
+    const [, m, d] = iso.split('-');
+    return `${parseInt(d, 10)}.${parseInt(m, 10)}.`;
+  };
 
   const totalHours = useMemo(() =>
     Math.round(monthlyStats.reduce((sum, s) => sum + s.totalHours, 0) * 10) / 10, [monthlyStats]);
@@ -458,6 +536,222 @@ export default function AdminStatisticsPage() {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ===== VACATION / ABSENCE OVERVIEW ===== */}
+      {!loading && (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+            <div className="dashboard-card">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white">
+                  <TreePalm size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dovolená — měsíc</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalVacationThisMonth} d</p>
+                </div>
+              </div>
+            </div>
+            <div className="dashboard-card">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-400 to-pink-500 flex items-center justify-center text-white">
+                  <CalendarOff size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Nepřítomen — měsíc</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalAbsentThisMonth} d</p>
+                </div>
+              </div>
+            </div>
+            <div className="dashboard-card">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white">
+                  <CalendarDays size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Plán dovolených</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalPlannedVacation} d</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Vacation table per employee */}
+          <div className="dashboard-card mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                <TreePalm size={16} style={{ color: '#f59e0b' }} /> Dovolené v roce {selectedYear}
+              </h3>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Roční nárok upravíte v sekci Zaměstnanci
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Zaměstnanec</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Nárok</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#10b981' }}>Vyčerpáno</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#8b5cf6' }}>Plánováno</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Zbývá</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#f59e0b' }}>Tento měsíc</th>
+                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: '#ef4444' }}>Nepřít.</th>
+                    <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dny v měsíci</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {absenceOverview
+                    .filter(a => a.allowance > 0 || a.total > 0 || a.absentTotal > 0)
+                    .sort((a, b) => b.total - a.total)
+                    .map((row, i) => {
+                      const usagePct = row.allowance > 0 ? Math.round((row.total / row.allowance) * 100) : 0;
+                      const overLimit = row.total > row.allowance;
+                      return (
+                        <tr key={row.employeeName} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-bold"
+                                style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
+                                {row.employeeName.charAt(0)}
+                              </div>
+                              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{row.employeeName}</span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${row.employeeType === 'internal' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>{row.allowance} d</td>
+                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#10b981' }}>{row.taken}</td>
+                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#8b5cf6' }}>{row.planned}</td>
+                          <td className="py-2.5 px-3 text-right font-bold" style={{ color: overLimit ? '#ef4444' : 'var(--text-primary)' }}>
+                            {row.remaining}
+                            {overLimit && <span className="text-[10px] ml-1">⚠</span>}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#f59e0b' }}>
+                            {row.thisMonthVacation || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#ef4444' }}>
+                            {row.thisMonthAbsent || '—'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.vacationDatesThisMonth.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {row.vacationDatesThisMonth.map(d => (
+                                  <span key={d} className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">
+                                    {formatShortDate(d)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                            {/* Progress bar pod buňkami */}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {absenceOverview.filter(a => a.allowance > 0 || a.total > 0 || a.absentTotal > 0).length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                        Žádné záznamy o dovolené v roce {selectedYear}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Progress bars: čerpání nárokem */}
+            <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+              {absenceOverview
+                .filter(a => a.allowance > 0)
+                .sort((a, b) => (b.total / b.allowance) - (a.total / a.allowance))
+                .map(row => {
+                  const pct = Math.min(100, Math.round((row.total / row.allowance) * 100));
+                  const takenPct = Math.min(100, Math.round((row.taken / row.allowance) * 100));
+                  return (
+                    <div key={row.employeeName}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{row.employeeName}</span>
+                        <span className="text-[10px] font-bold" style={{ color: pct >= 100 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981' }}>
+                          {row.total}/{row.allowance} ({pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full overflow-hidden relative" style={{ background: 'var(--surface-hover)' }}>
+                        {/* Vyčerpáno */}
+                        <div className="h-full absolute left-0 top-0" style={{ width: `${takenPct}%`, background: '#10b981' }} />
+                        {/* Plánováno (nad vyčerpáno) */}
+                        <div className="h-full absolute top-0" style={{ left: `${takenPct}%`, width: `${pct - takenPct}%`, background: '#8b5cf6' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Legenda */}
+            <div className="flex items-center gap-4 mt-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded" style={{ background: '#10b981' }} /> Vyčerpáno</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded" style={{ background: '#8b5cf6' }} /> Plánováno</span>
+            </div>
+          </div>
+
+          {/* Upcoming planned vacations across team */}
+          {upcomingVacations.length > 0 && (
+            <div className="dashboard-card mb-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                <CalendarDays size={16} style={{ color: '#8b5cf6' }} /> Plánované dovolené
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {upcomingVacations.map(({ employeeName, date }) => (
+                  <span
+                    key={`${employeeName}_${date}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                    style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
+                  >
+                    <span>🏖️</span>
+                    <strong>{employeeName}</strong>
+                    <span>{formatShortDate(date)}</span>
+                  </span>
+                ))}
+              </div>
+              {upcomingVacations.length >= 50 && (
+                <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+                  Zobrazuje se prvních 50 záznamů.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Monthly vacation distribution bar chart */}
+          {yearlyAbsence.length > 0 && (
+            <div className="dashboard-card mb-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                <BarChart3 size={16} style={{ color: '#f59e0b' }} /> Dovolené po měsících ({selectedYear})
+              </h3>
+              <div style={{ width: '100%', height: 240 }}>
+                <ResponsiveContainer>
+                  <BarChart
+                    data={Array.from({ length: 12 }, (_, m) => ({
+                      name: new Date(selectedYear, m).toLocaleDateString('cs-CZ', { month: 'short' }),
+                      dovolená: yearlyAbsence.reduce((s, a) => s + (a.monthlyVacation[m] || 0), 0),
+                      nepřítomen: yearlyAbsence.reduce((s, a) => s + (a.monthlyAbsent[m] || 0), 0),
+                    }))}
+                    margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                    <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13 }} />
+                    <Bar dataKey="dovolená" fill="#f59e0b" radius={[6, 6, 0, 0]} stackId="abs" />
+                    <Bar dataKey="nepřítomen" fill="#ef4444" radius={[6, 6, 0, 0]} stackId="abs" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}

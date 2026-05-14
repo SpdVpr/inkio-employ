@@ -15,6 +15,7 @@ import { getCollectionName } from './environment';
 
 export type TaskStatus = 'pending' | 'in-progress' | 'completed';
 export type WorkLocation = 'office' | 'homeoffice' | 'unset';
+export type AbsenceType = 'vacation' | 'absent';
 
 export interface SubTask {
   id: string;
@@ -32,7 +33,8 @@ export interface ScheduleTask {
   taskContent: string; // Zachováno pro zpětnou kompatibilitu
   status: TaskStatus;
   subTasks?: SubTask[]; // Nové pole pro sub-úkoly
-  isAbsent?: boolean; // Označení, že zaměstnanec není v práci
+  isAbsent?: boolean; // Označení, že zaměstnanec není v práci (zachováno pro zpětnou kompatibilitu)
+  absenceType?: AbsenceType | null; // Typ nepřítomnosti: 'vacation' (dovolená) nebo 'absent' (nepřítomen z jiného důvodu)
   workLocation?: WorkLocation; // Kde zaměstnanec pracuje (kancelář/homeoffice)
   updatedAt: Timestamp;
 }
@@ -267,23 +269,25 @@ export const updateSubTaskStatus = async (
   }
 };
 
-// Toggle absence status for a specific employee and date
-export const toggleAbsent = async (
+// Set absence type for a specific employee and date.
+// Pass `null` to clear the absence (přítomen).
+export const setAbsenceType = async (
   employeeName: string,
   taskDate: string,
-  isAbsent: boolean
+  absenceType: AbsenceType | null
 ): Promise<void> => {
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
 
+  const isAbsent = absenceType !== null;
+
   try {
-    // Pokus se aktualizovat pouze isAbsent
     await updateDoc(taskRef, {
       isAbsent,
+      absenceType: absenceType ?? null,
       updatedAt: Timestamp.now()
     });
   } catch (error) {
-    // Pokud dokument neexistuje, vytvoř ho
     await setDoc(taskRef, {
       id: taskId,
       employeeName,
@@ -291,9 +295,26 @@ export const toggleAbsent = async (
       taskContent: '',
       status: 'pending',
       isAbsent,
+      absenceType: absenceType ?? null,
       updatedAt: Timestamp.now()
     });
   }
+};
+
+// Zpětně kompatibilní wrapper - true = nastav 'absent', false = vyčisti
+export const toggleAbsent = async (
+  employeeName: string,
+  taskDate: string,
+  isAbsent: boolean
+): Promise<void> => {
+  return setAbsenceType(employeeName, taskDate, isAbsent ? 'absent' : null);
+};
+
+// Resolve effective absence type from a task — handles legacy docs that only have isAbsent.
+export const resolveAbsenceType = (task: Pick<ScheduleTask, 'isAbsent' | 'absenceType'>): AbsenceType | null => {
+  if (task.absenceType) return task.absenceType;
+  if (task.isAbsent) return 'absent';
+  return null;
 };
 
 // Move a single sub-task from one date to another for the same employee
@@ -596,6 +617,10 @@ export interface MonthlyEmployeeStats {
   daysWorked: number;
   officeDays: number;
   homeofficeDays: number;
+  vacationDays: number;
+  absentDays: number;
+  vacationDates: string[];
+  absentDates: string[];
 }
 
 export const getMonthlyEmployeeStats = (
@@ -621,6 +646,8 @@ export const getMonthlyEmployeeStats = (
         daysWorked: Set<string>;
         officeDays: Set<string>;
         homeofficeDays: Set<string>;
+        vacationDates: Set<string>;
+        absentDates: Set<string>;
       }> = {};
 
       snapshot.forEach((d) => {
@@ -634,6 +661,8 @@ export const getMonthlyEmployeeStats = (
             daysWorked: new Set(),
             officeDays: new Set(),
             homeofficeDays: new Set(),
+            vacationDates: new Set(),
+            absentDates: new Set(),
           };
         }
 
@@ -646,6 +675,14 @@ export const getMonthlyEmployeeStats = (
           employeeMap[task.employeeName].officeDays.add(task.taskDate);
         } else if (task.workLocation === 'homeoffice') {
           employeeMap[task.employeeName].homeofficeDays.add(task.taskDate);
+        }
+
+        // Track absence (vacation vs. absent)
+        const absType = resolveAbsenceType(task);
+        if (absType === 'vacation') {
+          employeeMap[task.employeeName].vacationDates.add(task.taskDate);
+        } else if (absType === 'absent') {
+          employeeMap[task.employeeName].absentDates.add(task.taskDate);
         }
 
         subTasks.forEach(st => {
@@ -665,10 +702,109 @@ export const getMonthlyEmployeeStats = (
         daysWorked: data.daysWorked.size,
         officeDays: data.officeDays.size,
         homeofficeDays: data.homeofficeDays.size,
+        vacationDays: data.vacationDates.size,
+        absentDays: data.absentDates.size,
+        vacationDates: Array.from(data.vacationDates).sort(),
+        absentDates: Array.from(data.absentDates).sort(),
       }));
 
       unsubscribe();
       resolve(stats);
+    });
+  });
+};
+
+// ===== YEARLY ABSENCE / VACATION STATS =====
+export interface YearlyAbsenceStats {
+  employeeName: string;
+  // Aggregated across the year
+  takenVacationDays: number;   // dovolená — datum <= dnes
+  plannedVacationDays: number; // dovolená — datum > dnes
+  totalVacationDays: number;   // taken + planned
+  absentDays: number;          // všechny dny "nepřítomen" (jiné než dovolená) v roce
+  // Detail záznamy
+  vacationDates: string[];     // všechna data dovolené v roce (YYYY-MM-DD), seřazeno
+  absentDates: string[];       // všechna data nepřítomnosti
+  // Měsíční rozpad: index 0 = leden ... 11 = prosinec
+  monthlyVacation: number[];   // počet dní dovolené v daném měsíci
+  monthlyAbsent: number[];     // počet dní nepřítomnosti v daném měsíci
+}
+
+// Aggregated absences for a whole year. Reads once and returns final result.
+export const getYearlyAbsenceStats = (
+  year: number
+): Promise<YearlyAbsenceStats[]> => {
+  return new Promise((resolve) => {
+    const startDate = `${year}-01-01`;
+    const endDate = `${year}-12-31`;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('taskDate', '>=', startDate),
+      where('taskDate', '<=', endDate)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const map: Record<string, {
+        vacationDates: Set<string>;
+        absentDates: Set<string>;
+        monthlyVacation: number[];
+        monthlyAbsent: number[];
+      }> = {};
+
+      snapshot.forEach((d) => {
+        const task = d.data() as ScheduleTask;
+        const absType = resolveAbsenceType(task);
+        if (!absType) return;
+
+        if (!map[task.employeeName]) {
+          map[task.employeeName] = {
+            vacationDates: new Set(),
+            absentDates: new Set(),
+            monthlyVacation: Array(12).fill(0),
+            monthlyAbsent: Array(12).fill(0),
+          };
+        }
+
+        // Extract month from YYYY-MM-DD
+        const monthIdx = parseInt(task.taskDate.slice(5, 7), 10) - 1;
+
+        if (absType === 'vacation' && !map[task.employeeName].vacationDates.has(task.taskDate)) {
+          map[task.employeeName].vacationDates.add(task.taskDate);
+          if (monthIdx >= 0 && monthIdx < 12) {
+            map[task.employeeName].monthlyVacation[monthIdx]++;
+          }
+        } else if (absType === 'absent' && !map[task.employeeName].absentDates.has(task.taskDate)) {
+          map[task.employeeName].absentDates.add(task.taskDate);
+          if (monthIdx >= 0 && monthIdx < 12) {
+            map[task.employeeName].monthlyAbsent[monthIdx]++;
+          }
+        }
+      });
+
+      const result: YearlyAbsenceStats[] = Object.entries(map).map(([name, data]) => {
+        const vacationDates = Array.from(data.vacationDates).sort();
+        const absentDates = Array.from(data.absentDates).sort();
+        const taken = vacationDates.filter(d => d <= todayStr).length;
+        const planned = vacationDates.length - taken;
+
+        return {
+          employeeName: name,
+          takenVacationDays: taken,
+          plannedVacationDays: planned,
+          totalVacationDays: vacationDates.length,
+          absentDays: absentDates.length,
+          vacationDates,
+          absentDates,
+          monthlyVacation: data.monthlyVacation,
+          monthlyAbsent: data.monthlyAbsent,
+        };
+      });
+
+      unsubscribe();
+      resolve(result);
     });
   });
 };

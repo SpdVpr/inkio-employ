@@ -18,7 +18,7 @@ import {
   isWeekendDay,
   Employee
 } from '@/lib/utils';
-import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, moveSubTask, moveSubTaskCrossEmployee, WorkLocation, updateWorkLocation, WeeklyStats, subscribeToWeeklyStats } from '@/lib/database';
+import { subscribeToTasks, ScheduleTask, saveTask, TaskStatus, updateTaskStatus, SubTask, saveSubTasks, toggleAbsent, setAbsenceType as setAbsenceTypeDb, resolveAbsenceType, AbsenceType, moveSubTask, moveSubTaskCrossEmployee, WorkLocation, updateWorkLocation, WeeklyStats, subscribeToWeeklyStats } from '@/lib/database';
 import { isDevelopment, getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 import { subscribeToEmployees, EmployeeDocument } from '@/lib/employees';
 import { Settings, Keyboard, CalendarDays, LayoutGrid, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
@@ -53,6 +53,7 @@ export default function EmployeeSchedule() {
   const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
   const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
   const [absences, setAbsences] = useState<Record<string, Record<string, boolean>>>({});
+  const [absenceTypes, setAbsenceTypes] = useState<Record<string, Record<string, AbsenceType | null>>>({});
   const [workLocations, setWorkLocations] = useState<Record<string, Record<string, WorkLocation>>>({});
   const [weeklyStats, setWeeklyStats] = useState<Record<string, WeeklyStats>>({});
   const [loading, setLoading] = useState(true);
@@ -109,6 +110,7 @@ export default function EmployeeSchedule() {
       const statusesMap: Record<string, Record<string, TaskStatus>> = {};
       const subTasksMap: Record<string, Record<string, SubTask[]>> = {};
       const absencesMap: Record<string, Record<string, boolean>> = {};
+      const absenceTypesMap: Record<string, Record<string, AbsenceType | null>> = {};
       const workLocationsMap: Record<string, Record<string, WorkLocation>> = {};
 
       scheduleTasks.forEach(task => {
@@ -117,12 +119,15 @@ export default function EmployeeSchedule() {
           statusesMap[task.employeeName] = {};
           subTasksMap[task.employeeName] = {};
           absencesMap[task.employeeName] = {};
+          absenceTypesMap[task.employeeName] = {};
           workLocationsMap[task.employeeName] = {};
         }
         tasksMap[task.employeeName][task.taskDate] = task.taskContent;
         statusesMap[task.employeeName][task.taskDate] = task.status || 'pending';
         subTasksMap[task.employeeName][task.taskDate] = task.subTasks || [];
-        absencesMap[task.employeeName][task.taskDate] = task.isAbsent || false;
+        const absType = resolveAbsenceType(task);
+        absencesMap[task.employeeName][task.taskDate] = absType !== null;
+        absenceTypesMap[task.employeeName][task.taskDate] = absType;
         workLocationsMap[task.employeeName][task.taskDate] = task.workLocation || 'unset';
       });
 
@@ -130,6 +135,7 @@ export default function EmployeeSchedule() {
       setTaskStatuses(statusesMap);
       setSubTasks(subTasksMap);
       setAbsences(absencesMap);
+      setAbsenceTypes(absenceTypesMap);
       setWorkLocations(workLocationsMap);
       setLoading(false);
     });
@@ -209,22 +215,37 @@ export default function EmployeeSchedule() {
     }
   };
 
-  const handleAbsenceToggle = async (employee: Employee, date: Date) => {
+  const handleAbsenceTypeChange = async (employee: Employee, date: Date, newType: AbsenceType | null) => {
     const dateStr = formatDate(date);
-    const currentAbsence = absences[employee.name]?.[dateStr] || false;
+    const prevType = absenceTypes[employee.name]?.[dateStr] ?? null;
+    setAbsenceTypes(prev => ({
+      ...prev,
+      [employee.name]: { ...prev[employee.name], [dateStr]: newType }
+    }));
     setAbsences(prev => ({
       ...prev,
-      [employee.name]: { ...prev[employee.name], [dateStr]: !currentAbsence }
+      [employee.name]: { ...prev[employee.name], [dateStr]: newType !== null }
     }));
     try {
-      await toggleAbsent(employee.name, dateStr, !currentAbsence);
+      await setAbsenceTypeDb(employee.name, dateStr, newType);
     } catch (error) {
-      console.error('Error toggling absence:', error);
+      console.error('Error setting absence type:', error);
+      setAbsenceTypes(prev => ({
+        ...prev,
+        [employee.name]: { ...prev[employee.name], [dateStr]: prevType }
+      }));
       setAbsences(prev => ({
         ...prev,
-        [employee.name]: { ...prev[employee.name], [dateStr]: currentAbsence }
+        [employee.name]: { ...prev[employee.name], [dateStr]: prevType !== null }
       }));
     }
+  };
+
+  const handleAbsenceToggle = async (employee: Employee, date: Date) => {
+    const dateStr = formatDate(date);
+    const current = absenceTypes[employee.name]?.[dateStr] ?? (absences[employee.name]?.[dateStr] ? 'absent' : null);
+    // Cycle: nothing → absent → nothing (legacy toggle behavior)
+    await handleAbsenceTypeChange(employee, date, current ? null : 'absent');
   };
 
   const handleWorkLocationChange = async (employee: Employee, date: Date, location: WorkLocation) => {
@@ -471,10 +492,12 @@ export default function EmployeeSchedule() {
                   taskStatuses={taskStatuses[employee.name] || {}}
                   subTasks={subTasks[employee.name] || {}}
                   absences={absences[employee.name] || {}}
+                  absenceTypes={absenceTypes[employee.name] || {}}
                   workLocations={workLocations[employee.name] || {}}
                   onOpenModal={handleOpenModal}
                   onStatusChange={handleStatusChange}
                   onAbsenceToggle={handleAbsenceToggle}
+                  onAbsenceTypeChange={handleAbsenceTypeChange}
                   onWorkLocationChange={handleWorkLocationChange}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -506,10 +529,12 @@ export default function EmployeeSchedule() {
                   taskStatuses={taskStatuses[employee.name] || {}}
                   subTasks={subTasks[employee.name] || {}}
                   absences={absences[employee.name] || {}}
+                  absenceTypes={absenceTypes[employee.name] || {}}
                   workLocations={workLocations[employee.name] || {}}
                   onOpenModal={handleOpenModal}
                   onStatusChange={handleStatusChange}
                   onAbsenceToggle={handleAbsenceToggle}
+                  onAbsenceTypeChange={handleAbsenceTypeChange}
                   onWorkLocationChange={handleWorkLocationChange}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -533,10 +558,12 @@ export default function EmployeeSchedule() {
             taskStatuses={taskStatuses}
             subTasks={subTasks}
             absences={absences}
+            absenceTypes={absenceTypes}
             workLocations={workLocations}
             onOpenModal={handleOpenModal}
             onStatusChange={handleStatusChange}
             onAbsenceToggle={handleAbsenceToggle}
+            onAbsenceTypeChange={handleAbsenceTypeChange}
             onWorkLocationChange={handleWorkLocationChange}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -572,9 +599,17 @@ export default function EmployeeSchedule() {
         isAbsent={modalState.employee && modalState.date
           ? absences[modalState.employee.name]?.[formatDate(modalState.date)] || false
           : false}
+        absenceType={modalState.employee && modalState.date
+          ? absenceTypes[modalState.employee.name]?.[formatDate(modalState.date)] ?? null
+          : null}
         onAbsenceToggle={() => {
           if (modalState.employee && modalState.date) {
             handleAbsenceToggle(modalState.employee, modalState.date);
+          }
+        }}
+        onAbsenceTypeChange={(type) => {
+          if (modalState.employee && modalState.date) {
+            handleAbsenceTypeChange(modalState.employee, modalState.date, type);
           }
         }}
       />
@@ -589,9 +624,17 @@ export default function EmployeeSchedule() {
         isAbsent={subTaskModalState.employee && subTaskModalState.date
           ? absences[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] || false
           : false}
+        absenceType={subTaskModalState.employee && subTaskModalState.date
+          ? absenceTypes[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] ?? null
+          : null}
         onAbsenceToggle={() => {
           if (subTaskModalState.employee && subTaskModalState.date) {
             handleAbsenceToggle(subTaskModalState.employee, subTaskModalState.date);
+          }
+        }}
+        onAbsenceTypeChange={(type) => {
+          if (subTaskModalState.employee && subTaskModalState.date) {
+            handleAbsenceTypeChange(subTaskModalState.employee, subTaskModalState.date, type);
           }
         }}
         employees={employees}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Employee, formatDate, getStatusIcon } from '@/lib/utils';
-import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes } from '@/lib/database';
+import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes, AbsenceType } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
@@ -23,10 +23,12 @@ interface EmployeeRowProps {
   taskStatuses: Record<string, TaskStatus>;
   subTasks: Record<string, SubTask[]>;
   absences: Record<string, boolean>;
+  absenceTypes?: Record<string, AbsenceType | null>;
   workLocations: Record<string, WorkLocation>;
   onOpenModal: (employee: Employee, date: Date, currentContent: string) => void;
   onStatusChange: (employee: Employee, date: Date, status: TaskStatus) => void;
   onAbsenceToggle: (employee: Employee, date: Date) => void;
+  onAbsenceTypeChange?: (employee: Employee, date: Date, type: AbsenceType | null) => void;
   onWorkLocationChange: (employee: Employee, date: Date, location: WorkLocation) => void;
   onDragStart: (employee: Employee, date: Date, subTaskId: string) => void;
   onDragEnd: () => void;
@@ -44,10 +46,12 @@ export default function EmployeeRow({
   taskStatuses,
   subTasks,
   absences,
+  absenceTypes,
   workLocations,
   onOpenModal,
   onStatusChange,
   onAbsenceToggle,
+  onAbsenceTypeChange,
   onWorkLocationChange,
   onDragStart,
   onDragEnd,
@@ -154,7 +158,9 @@ export default function EmployeeRow({
         const taskContent = tasks[dateStr] || '';
         const daySubTasks = subTasks[dateStr] || [];
         const progress = calculateProgress(daySubTasks);
-        const isAbsent = absences[dateStr] || false;
+        const absenceType: AbsenceType | null = absenceTypes?.[dateStr] ?? (absences[dateStr] ? 'absent' : null);
+        const isAbsent = absenceType !== null;
+        const isVacation = absenceType === 'vacation';
         const workLocation = workLocations[dateStr] || 'unset';
         const isMenuOpen = showStatusMenu === dateStr;
 
@@ -166,7 +172,9 @@ export default function EmployeeRow({
 
         // Cell background — visible differentiation
         let cellBg = 'bg-white';
-        if (isAbsent) {
+        if (isVacation) {
+          cellBg = 'bg-amber-50';
+        } else if (isAbsent) {
           cellBg = 'bg-red-50';
         } else if (progress === 100) {
           cellBg = 'bg-emerald-50';
@@ -196,11 +204,14 @@ export default function EmployeeRow({
           >
             <div className="h-[235px] px-2 py-1.5 text-sm text-slate-800 relative overflow-hidden flex flex-col w-full">
 
-              {/* Absent — centered in the full cell */}
+              {/* Absence overlay — centered in the full cell */}
               {isAbsent && (
-                <div className="absolute inset-0 flex items-center justify-center z-[1] bg-red-50">
-                  <span className="px-3 py-1 bg-red-100 text-red-500 text-xs font-semibold rounded-lg">
-                    🚫 Nepřítomen
+                <div className={`absolute inset-0 flex items-center justify-center z-[1] ${isVacation ? 'bg-amber-50' : 'bg-red-50'}`}>
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-lg ${isVacation
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-red-100 text-red-500'
+                    }`}>
+                    {isVacation ? '🏖️ Dovolená' : '🚫 Nepřítomen'}
                   </span>
                 </div>
               )}
@@ -305,11 +316,34 @@ export default function EmployeeRow({
                 ))}
                 <div className="border-t border-slate-100">
                   <button
-                    onClick={(e) => { e.stopPropagation(); onAbsenceToggle(employee, date); setShowStatusMenu(null); }}
-                    className="w-full text-left px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onAbsenceTypeChange) {
+                        onAbsenceTypeChange(employee, date, isVacation ? null : 'vacation');
+                      } else if (!isAbsent) {
+                        onAbsenceToggle(employee, date);
+                      }
+                      setShowStatusMenu(null);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${isVacation ? 'bg-amber-50 text-amber-700' : 'text-amber-600 hover:bg-amber-50'}`}
+                  >
+                    <span>🏖️</span>
+                    <span>{isVacation ? 'Zrušit dovolenou' : 'Dovolená'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onAbsenceTypeChange) {
+                        onAbsenceTypeChange(employee, date, absenceType === 'absent' ? null : 'absent');
+                      } else {
+                        onAbsenceToggle(employee, date);
+                      }
+                      setShowStatusMenu(null);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${absenceType === 'absent' ? 'bg-red-50 text-red-700' : 'text-red-600 hover:bg-red-50'}`}
                   >
                     <span>🚫</span>
-                    <span>{isAbsent ? 'Zrušit nepřítomnost' : 'Nepřítomen'}</span>
+                    <span>{absenceType === 'absent' ? 'Zrušit nepřítomnost' : 'Nepřítomen'}</span>
                   </button>
                 </div>
               </div>

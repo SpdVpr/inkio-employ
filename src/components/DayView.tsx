@@ -1,7 +1,7 @@
 'use client';
 
 import { Employee, formatDate, formatDayName, formatDateDisplay } from '@/lib/utils';
-import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes } from '@/lib/database';
+import { TaskStatus, SubTask, calculateProgress, updateSubTaskStatus, WorkLocation, formatTimeMinutes, AbsenceType } from '@/lib/database';
 import SubTaskList from './SubTaskList';
 import ProgressBar from './ProgressBar';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
@@ -14,10 +14,12 @@ interface DayViewProps {
   taskStatuses: Record<string, Record<string, TaskStatus>>;
   subTasks: Record<string, Record<string, SubTask[]>>;
   absences: Record<string, Record<string, boolean>>;
+  absenceTypes?: Record<string, Record<string, AbsenceType | null>>;
   workLocations: Record<string, Record<string, WorkLocation>>;
   onOpenModal: (employee: Employee, date: Date, currentContent: string) => void;
   onStatusChange: (employee: Employee, date: Date, status: TaskStatus) => void;
   onAbsenceToggle: (employee: Employee, date: Date) => void;
+  onAbsenceTypeChange?: (employee: Employee, date: Date, type: AbsenceType | null) => void;
   onWorkLocationChange: (employee: Employee, date: Date, location: WorkLocation) => void;
   onDragStart: (employee: Employee, date: Date, subTaskId: string) => void;
   onDragEnd: () => void;
@@ -33,10 +35,12 @@ export default function DayView({
   taskStatuses,
   subTasks,
   absences,
+  absenceTypes,
   workLocations,
   onOpenModal,
   onStatusChange,
   onAbsenceToggle,
+  onAbsenceTypeChange,
   onWorkLocationChange,
   onDragStart,
   onDragEnd,
@@ -67,7 +71,10 @@ export default function DayView({
 
   const renderEmployeeCard = (employee: Employee) => {
     const daySubTasks = subTasks[employee.name]?.[dateStr] || [];
-    const isAbsent = absences[employee.name]?.[dateStr] || false;
+    const absenceType: AbsenceType | null = absenceTypes?.[employee.name]?.[dateStr]
+      ?? (absences[employee.name]?.[dateStr] ? 'absent' : null);
+    const isAbsent = absenceType !== null;
+    const isVacation = absenceType === 'vacation';
     const workLocation = workLocations[employee.name]?.[dateStr];
     const progress = calculateProgress(daySubTasks);
     const completedCount = daySubTasks.filter(t => t.status === 'completed').length;
@@ -78,11 +85,13 @@ export default function DayView({
       <div
         key={employee.name}
         className={`bg-white rounded-xl border transition-all ${
-          isAbsent
-            ? 'border-red-200 bg-red-50/30'
-            : isDragTarget
-              ? 'border-blue-300 ring-1 ring-blue-200'
-              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+          isVacation
+            ? 'border-amber-200 bg-amber-50/30'
+            : isAbsent
+              ? 'border-red-200 bg-red-50/30'
+              : isDragTarget
+                ? 'border-blue-300 ring-1 ring-blue-200'
+                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
         }`}
         onDragOver={(e) => { e.preventDefault(); onDragOver(e); }}
         onDrop={() => onDrop(employee, selectedDate)}
@@ -134,16 +143,37 @@ export default function DayView({
             </button>
           </div>
 
+          {/* Vacation toggle */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, isVacation ? null : 'vacation');
+              else if (!isAbsent) onAbsenceToggle(employee, selectedDate);
+            }}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
+              isVacation
+                ? 'bg-amber-100 text-amber-700 border-amber-300'
+                : 'bg-white text-slate-400 border-slate-200 hover:border-amber-300 hover:text-amber-600'
+            }`}
+            title="Dovolená"
+          >
+            🏖️ {isVacation ? 'Dovolená' : 'Dovolená'}
+          </button>
+
           {/* Absence toggle */}
           <button
-            onClick={(e) => { e.stopPropagation(); onAbsenceToggle(employee, selectedDate); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAbsenceTypeChange) onAbsenceTypeChange(employee, selectedDate, absenceType === 'absent' ? null : 'absent');
+              else onAbsenceToggle(employee, selectedDate);
+            }}
             className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border ${
-              isAbsent
+              absenceType === 'absent'
                 ? 'bg-red-100 text-red-600 border-red-300'
                 : 'bg-white text-slate-400 border-slate-200 hover:border-red-300 hover:text-red-500'
             }`}
           >
-            🚫 {isAbsent ? 'Přítomen' : 'Nepřítomen'}
+            🚫 {absenceType === 'absent' ? 'Nepřítomen' : 'Nepřítomen'}
           </button>
         </div>
 
@@ -153,8 +183,8 @@ export default function DayView({
           onClick={() => onOpenModal(employee, selectedDate, tasks[employee.name]?.[dateStr] || '')}
         >
           {isAbsent ? (
-            <div className="flex items-center justify-center h-16 text-red-400 text-sm font-medium">
-              🚫 Nepřítomen/a
+            <div className={`flex items-center justify-center h-16 text-sm font-medium ${isVacation ? 'text-amber-500' : 'text-red-400'}`}>
+              {isVacation ? '🏖️ Dovolená' : '🚫 Nepřítomen/a'}
             </div>
           ) : daySubTasks.length === 0 ? (
             <div className="flex items-center justify-center h-16 text-slate-300 italic text-sm">

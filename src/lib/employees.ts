@@ -17,6 +17,7 @@ export interface EmployeeDocument extends Employee {
   id: string;
   order: number; // Pro řazení zaměstnanců
   linkedUid?: string; // UID of the paired user account
+  vacationAllowance?: number; // Roční nárok na dovolenou ve dnech (default 25)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -99,6 +100,20 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
     console.log(`Employee ${employeeId} deleted successfully`);
   } catch (error) {
     console.error('Error deleting employee:', error);
+    throw error;
+  }
+};
+
+// Aktualizovat roční nárok na dovolenou
+export const updateVacationAllowance = async (employeeId: string, vacationAllowance: number): Promise<void> => {
+  try {
+    const employeeRef = doc(db, COLLECTION_NAME, employeeId);
+    await setDoc(employeeRef, {
+      vacationAllowance,
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error updating vacation allowance:', error);
     throw error;
   }
 };

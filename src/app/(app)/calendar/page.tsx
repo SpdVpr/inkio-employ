@@ -24,6 +24,7 @@ import {
 import {
   subscribeToTasks, ScheduleTask, saveTask, TaskStatus,
   updateTaskStatus, SubTask, saveSubTasks, toggleAbsent,
+  setAbsenceType as setAbsenceTypeDb, resolveAbsenceType, AbsenceType,
   moveSubTask, moveSubTaskCrossEmployee, WorkLocation,
   updateWorkLocation, WeeklyStats, subscribeToWeeklyStats,
   calculateProgress, updateSubTaskStatus, formatTimeMinutes
@@ -70,6 +71,7 @@ export default function DashboardPage() {
   const [taskStatuses, setTaskStatuses] = useState<Record<string, Record<string, TaskStatus>>>({});
   const [subTasks, setSubTasks] = useState<Record<string, Record<string, SubTask[]>>>({});
   const [absences, setAbsences] = useState<Record<string, Record<string, boolean>>>({});
+  const [absenceTypes, setAbsenceTypes] = useState<Record<string, Record<string, AbsenceType | null>>>({});
   const [workLocations, setWorkLocations] = useState<Record<string, Record<string, WorkLocation>>>({});
   const [weeklyStats, setWeeklyStats] = useState<Record<string, WeeklyStats>>({});
   const [loading, setLoading] = useState(true);
@@ -128,6 +130,7 @@ export default function DashboardPage() {
       const statusesMap: Record<string, Record<string, TaskStatus>> = {};
       const subTasksMap: Record<string, Record<string, SubTask[]>> = {};
       const absencesMap: Record<string, Record<string, boolean>> = {};
+      const absenceTypesMap: Record<string, Record<string, AbsenceType | null>> = {};
       const workLocationsMap: Record<string, Record<string, WorkLocation>> = {};
 
       scheduleTasks.forEach(task => {
@@ -136,12 +139,15 @@ export default function DashboardPage() {
           statusesMap[task.employeeName] = {};
           subTasksMap[task.employeeName] = {};
           absencesMap[task.employeeName] = {};
+          absenceTypesMap[task.employeeName] = {};
           workLocationsMap[task.employeeName] = {};
         }
         tasksMap[task.employeeName][task.taskDate] = task.taskContent;
         statusesMap[task.employeeName][task.taskDate] = task.status || 'pending';
         subTasksMap[task.employeeName][task.taskDate] = task.subTasks || [];
-        absencesMap[task.employeeName][task.taskDate] = task.isAbsent || false;
+        const absType = resolveAbsenceType(task);
+        absencesMap[task.employeeName][task.taskDate] = absType !== null;
+        absenceTypesMap[task.employeeName][task.taskDate] = absType;
         workLocationsMap[task.employeeName][task.taskDate] = task.workLocation || 'unset';
       });
 
@@ -149,6 +155,7 @@ export default function DashboardPage() {
       setTaskStatuses(statusesMap);
       setSubTasks(subTasksMap);
       setAbsences(absencesMap);
+      setAbsenceTypes(absenceTypesMap);
       setWorkLocations(workLocationsMap);
       setLoading(false);
     });
@@ -222,21 +229,35 @@ export default function DashboardPage() {
     catch (error) { console.error('Error updating task status:', error); }
   };
 
-  const handleAbsenceToggle = async (employee: Employee, date: Date) => {
+  const handleAbsenceTypeChange = async (employee: Employee, date: Date, newType: AbsenceType | null) => {
     const dateStr = formatDate(date);
-    const currentAbsence = absences[employee.name]?.[dateStr] || false;
+    const prevType = absenceTypes[employee.name]?.[dateStr] ?? null;
+    setAbsenceTypes(prev => ({
+      ...prev,
+      [employee.name]: { ...prev[employee.name], [dateStr]: newType }
+    }));
     setAbsences(prev => ({
       ...prev,
-      [employee.name]: { ...prev[employee.name], [dateStr]: !currentAbsence }
+      [employee.name]: { ...prev[employee.name], [dateStr]: newType !== null }
     }));
-    try { await toggleAbsent(employee.name, dateStr, !currentAbsence); }
+    try { await setAbsenceTypeDb(employee.name, dateStr, newType); }
     catch (error) {
-      console.error('Error toggling absence:', error);
+      console.error('Error setting absence type:', error);
+      setAbsenceTypes(prev => ({
+        ...prev,
+        [employee.name]: { ...prev[employee.name], [dateStr]: prevType }
+      }));
       setAbsences(prev => ({
         ...prev,
-        [employee.name]: { ...prev[employee.name], [dateStr]: currentAbsence }
+        [employee.name]: { ...prev[employee.name], [dateStr]: prevType !== null }
       }));
     }
+  };
+
+  const handleAbsenceToggle = async (employee: Employee, date: Date) => {
+    const dateStr = formatDate(date);
+    const current = absenceTypes[employee.name]?.[dateStr] ?? (absences[employee.name]?.[dateStr] ? 'absent' : null);
+    await handleAbsenceTypeChange(employee, date, current ? null : 'absent');
   };
 
   const handleWorkLocationChange = async (employee: Employee, date: Date, location: WorkLocation) => {
@@ -379,7 +400,9 @@ export default function DashboardPage() {
       {viewMode === 'my-day' && myEmployee && (() => {
         const dateStr = formatDate(selectedDay);
         const dayTasks = subTasks[myName]?.[dateStr] || [];
-        const isAbsent = absences[myName]?.[dateStr] || false;
+        const myAbsenceType = absenceTypes[myName]?.[dateStr] ?? (absences[myName]?.[dateStr] ? 'absent' : null);
+        const isAbsent = myAbsenceType !== null;
+        const isVacation = myAbsenceType === 'vacation';
         const location = workLocations[myName]?.[dateStr] || 'unset';
         const progress = calculateProgress(dayTasks);
         const completed = dayTasks.filter(t => t.status === 'completed').length;
@@ -437,19 +460,26 @@ export default function DashboardPage() {
                   </button>
                 </div>
                 <button
-                  onClick={() => handleAbsenceToggle(myEmployee, selectedDay)}
-                  className={`dash-absence-btn ${isAbsent ? 'active' : ''}`}
+                  onClick={() => handleAbsenceTypeChange(myEmployee, selectedDay, 'vacation')}
+                  className="dash-absence-btn"
+                  style={{ color: '#d97706', borderColor: '#fde68a' }}
                 >
-                  <XCircle size={13} /> {isAbsent ? 'Přítomen' : 'Nepřítomen'}
+                  🏖️ Dovolená
+                </button>
+                <button
+                  onClick={() => handleAbsenceTypeChange(myEmployee, selectedDay, 'absent')}
+                  className="dash-absence-btn"
+                >
+                  <XCircle size={13} /> Nepřítomen
                 </button>
               </div>
             )}
 
             {/* Absent banner */}
             {isAbsent && (
-              <div className="dash-absent-banner">
-                <span>🚫 Dnes jste nepřítomný/á</span>
-                <button onClick={() => handleAbsenceToggle(myEmployee, selectedDay)} className="dash-absent-undo">
+              <div className="dash-absent-banner" style={isVacation ? { background: '#fef3c7', color: '#92400e' } : undefined}>
+                <span>{isVacation ? '🏖️ Dnes máte dovolenou' : '🚫 Dnes jste nepřítomný/á'}</span>
+                <button onClick={() => handleAbsenceTypeChange(myEmployee, selectedDay, null)} className="dash-absent-undo">
                   Zrušit
                 </button>
               </div>
@@ -538,7 +568,9 @@ export default function DashboardPage() {
           {weekData.days.filter(d => !isWeekendDay(d)).map((date) => {
             const dateStr = formatDate(date);
             const dayTasks = subTasks[myName]?.[dateStr] || [];
-            const isAbsent = absences[myName]?.[dateStr] || false;
+            const dayAbsType = absenceTypes[myName]?.[dateStr] ?? (absences[myName]?.[dateStr] ? 'absent' : null);
+            const isAbsent = dayAbsType !== null;
+            const isVacation = dayAbsType === 'vacation';
             const location = workLocations[myName]?.[dateStr] || 'unset';
             const progress = calculateProgress(dayTasks);
             const completed = dayTasks.filter(t => t.status === 'completed').length;
@@ -590,7 +622,14 @@ export default function DashboardPage() {
                       🏠 Home
                     </button>
                     <button
-                      onClick={() => handleAbsenceToggle(myEmployee, date)}
+                      onClick={() => handleAbsenceTypeChange(myEmployee, date, 'vacation')}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-600"
+                      title="Dovolená"
+                    >
+                      🏖️
+                    </button>
+                    <button
+                      onClick={() => handleAbsenceTypeChange(myEmployee, date, 'absent')}
                       className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all border border-slate-200 text-slate-400 hover:border-red-300 hover:text-red-500"
                       title="Nepřítomen"
                     >
@@ -602,11 +641,13 @@ export default function DashboardPage() {
                 {/* Absent banner inline */}
                 {isAbsent && (
                   <div className="px-3 pb-1" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-between bg-red-50 rounded-lg px-2 py-1">
-                      <span className="text-[10px] text-red-500 font-medium">🚫 Nepřítomen</span>
+                    <div className={`flex items-center justify-between rounded-lg px-2 py-1 ${isVacation ? 'bg-amber-50' : 'bg-red-50'}`}>
+                      <span className={`text-[10px] font-medium ${isVacation ? 'text-amber-600' : 'text-red-500'}`}>
+                        {isVacation ? '🏖️ Dovolená' : '🚫 Nepřítomen'}
+                      </span>
                       <button
-                        onClick={() => handleAbsenceToggle(myEmployee, date)}
-                        className="text-[10px] text-red-400 hover:text-red-600 font-medium underline"
+                        onClick={() => handleAbsenceTypeChange(myEmployee, date, null)}
+                        className={`text-[10px] font-medium underline ${isVacation ? 'text-amber-500 hover:text-amber-700' : 'text-red-400 hover:text-red-600'}`}
                       >
                         Zrušit
                       </button>
@@ -728,10 +769,12 @@ export default function DashboardPage() {
                   taskStatuses={taskStatuses[employee.name] || {}}
                   subTasks={subTasks[employee.name] || {}}
                   absences={absences[employee.name] || {}}
+                  absenceTypes={absenceTypes[employee.name] || {}}
                   workLocations={workLocations[employee.name] || {}}
                   onOpenModal={handleOpenModal}
                   onStatusChange={handleStatusChange}
                   onAbsenceToggle={handleAbsenceToggle}
+                  onAbsenceTypeChange={handleAbsenceTypeChange}
                   onWorkLocationChange={handleWorkLocationChange}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -763,10 +806,12 @@ export default function DashboardPage() {
                   taskStatuses={taskStatuses[employee.name] || {}}
                   subTasks={subTasks[employee.name] || {}}
                   absences={absences[employee.name] || {}}
+                  absenceTypes={absenceTypes[employee.name] || {}}
                   workLocations={workLocations[employee.name] || {}}
                   onOpenModal={handleOpenModal}
                   onStatusChange={handleStatusChange}
                   onAbsenceToggle={handleAbsenceToggle}
+                  onAbsenceTypeChange={handleAbsenceTypeChange}
                   onWorkLocationChange={handleWorkLocationChange}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -810,8 +855,13 @@ export default function DashboardPage() {
         initialContent={modalState.initialContent}
         isAbsent={modalState.employee && modalState.date
           ? absences[modalState.employee.name]?.[formatDate(modalState.date)] || false : false}
+        absenceType={modalState.employee && modalState.date
+          ? absenceTypes[modalState.employee.name]?.[formatDate(modalState.date)] ?? null : null}
         onAbsenceToggle={() => {
           if (modalState.employee && modalState.date) handleAbsenceToggle(modalState.employee, modalState.date);
+        }}
+        onAbsenceTypeChange={(type) => {
+          if (modalState.employee && modalState.date) handleAbsenceTypeChange(modalState.employee, modalState.date, type);
         }}
       />
 
@@ -824,8 +874,13 @@ export default function DashboardPage() {
         initialSubTasks={subTaskModalState.initialSubTasks}
         isAbsent={subTaskModalState.employee && subTaskModalState.date
           ? absences[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] || false : false}
+        absenceType={subTaskModalState.employee && subTaskModalState.date
+          ? absenceTypes[subTaskModalState.employee.name]?.[formatDate(subTaskModalState.date)] ?? null : null}
         onAbsenceToggle={() => {
           if (subTaskModalState.employee && subTaskModalState.date) handleAbsenceToggle(subTaskModalState.employee, subTaskModalState.date);
+        }}
+        onAbsenceTypeChange={(type) => {
+          if (subTaskModalState.employee && subTaskModalState.date) handleAbsenceTypeChange(subTaskModalState.employee, subTaskModalState.date, type);
         }}
         employees={employees}
       />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { subscribeToEmployees, saveEmployee, deleteEmployee, EmployeeDocument, updateEmployeeType, reorderEmployeesInType, pairEmployeeToUser, unpairEmployee } from '@/lib/employees';
+import { subscribeToEmployees, saveEmployee, deleteEmployee, EmployeeDocument, updateEmployeeType, reorderEmployeesInType, pairEmployeeToUser, unpairEmployee, updateVacationAllowance } from '@/lib/employees';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserProfile, updateUserRole, pairUserToEmployee, markUserAsUnpaired } from '@/lib/auth';
@@ -324,6 +324,31 @@ export default function AdminEmployeesPage() {
                   Nepárováno
                 </span>
               )}
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+                title="Roční nárok na dovolenou (dnů)"
+              >
+                🏖️
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  defaultValue={emp.vacationAllowance ?? 25}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (Number.isFinite(val) && val !== (emp.vacationAllowance ?? 25)) {
+                      updateVacationAllowance(emp.id, val).catch(err => console.error('vacation allowance:', err));
+                    }
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                  onClick={(e) => e.stopPropagation()}
+                  onDragStart={(e) => e.stopPropagation()}
+                  draggable={false}
+                  className="w-10 bg-transparent border-none p-0 text-amber-700 font-bold focus:outline-none focus:ring-0 text-[10px]"
+                />
+                d
+              </span>
             </div>
           </div>
 

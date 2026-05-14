@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Undo, Redo } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName } from '@/lib/utils';
+import { AbsenceType } from '@/lib/database';
 
 interface TaskEditModalProps {
   isOpen: boolean;
@@ -12,7 +13,9 @@ interface TaskEditModalProps {
   date: Date;
   initialContent: string;
   isAbsent: boolean;
+  absenceType?: AbsenceType | null;
   onAbsenceToggle: () => void;
+  onAbsenceTypeChange?: (type: AbsenceType | null) => void;
 }
 
 export default function TaskEditModal({
@@ -23,8 +26,22 @@ export default function TaskEditModal({
   date,
   initialContent,
   isAbsent,
-  onAbsenceToggle
+  absenceType,
+  onAbsenceToggle,
+  onAbsenceTypeChange
 }: TaskEditModalProps) {
+  const effectiveAbsenceType: AbsenceType | null = absenceType ?? (isAbsent ? 'absent' : null);
+  const isVacation = effectiveAbsenceType === 'vacation';
+  const isAbsentOnly = effectiveAbsenceType === 'absent';
+  const setAbsence = (type: AbsenceType | null) => {
+    if (onAbsenceTypeChange) {
+      onAbsenceTypeChange(type);
+    } else {
+      const willBeAbsent = type !== null;
+      if (willBeAbsent !== isAbsent) onAbsenceToggle();
+    }
+  };
+
   const [content, setContent] = useState(initialContent);
   const [history, setHistory] = useState<string[]>([initialContent]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -256,17 +273,39 @@ export default function TaskEditModal({
               </span>
             </div>
             
-            {/* Tlačítko pro nepřítomnost */}
-            <button
-              onClick={onAbsenceToggle}
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-colors ${
-                isAbsent 
-                  ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300' 
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-              }`}
-            >
-              {isAbsent ? '✓ Nepřítomen' : '🚫 Označit jako nepřítomen'}
-            </button>
+            {/* Stav: Pracuje / Dovolená / Nepřítomen */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setAbsence(null)}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                  effectiveAbsenceType === null
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                    : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300'
+                }`}
+              >
+                ✅ Pracuje
+              </button>
+              <button
+                onClick={() => setAbsence('vacation')}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                  isVacation
+                    ? 'bg-amber-100 text-amber-700 border-amber-300'
+                    : 'bg-white text-gray-500 hover:bg-amber-50 border-gray-300'
+                }`}
+              >
+                🏖️ Dovolená
+              </button>
+              <button
+                onClick={() => setAbsence('absent')}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                  isAbsentOnly
+                    ? 'bg-red-100 text-red-700 border-red-300'
+                    : 'bg-white text-gray-500 hover:bg-red-50 border-gray-300'
+                }`}
+              >
+                🚫 Nepřítomen
+              </button>
+            </div>
           </div>
         </div>
 

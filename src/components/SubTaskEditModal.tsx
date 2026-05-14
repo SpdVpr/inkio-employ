@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock, MoreHorizontal, Building2 } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
-import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes } from '@/lib/database';
+import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes, AbsenceType } from '@/lib/database';
 import ProgressBar from './ProgressBar';
 import TimeInput from './TimeInput';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
@@ -19,7 +19,9 @@ interface SubTaskEditModalProps {
   date: Date;
   initialSubTasks: SubTask[];
   isAbsent: boolean;
+  absenceType?: AbsenceType | null;
   onAbsenceToggle: () => void;
+  onAbsenceTypeChange?: (type: AbsenceType | null) => void;
   employees?: Employee[];
 }
 
@@ -31,9 +33,23 @@ export default function SubTaskEditModal({
   date,
   initialSubTasks,
   isAbsent,
+  absenceType,
   onAbsenceToggle,
+  onAbsenceTypeChange,
   employees = []
 }: SubTaskEditModalProps) {
+  const effectiveAbsenceType: AbsenceType | null = absenceType ?? (isAbsent ? 'absent' : null);
+  const isVacation = effectiveAbsenceType === 'vacation';
+  const isAbsentOnly = effectiveAbsenceType === 'absent';
+  const setAbsence = (type: AbsenceType | null) => {
+    if (onAbsenceTypeChange) {
+      onAbsenceTypeChange(type);
+    } else {
+      const willBeAbsent = type !== null;
+      if (willBeAbsent !== isAbsent) onAbsenceToggle();
+    }
+  };
+
   const [subTasks, setSubTasks] = useState<SubTask[]>(initialSubTasks);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
@@ -265,17 +281,40 @@ export default function SubTaskEditModal({
           </button>
         </div>
 
-        {/* Absence toggle */}
+        {/* Absence selector: Pracuje / Dovolená / Nepřítomen */}
         <div className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-50/50 border-b border-slate-100">
-          <button
-            onClick={onAbsenceToggle}
-            className={`w-full px-4 py-2 rounded-lg font-medium text-xs transition-all ${isAbsent
-              ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
-              : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200 hover:border-slate-300'
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              onClick={() => setAbsence(null)}
+              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+                effectiveAbsenceType === null
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                  : 'bg-white text-slate-500 hover:bg-emerald-50 border-slate-200'
               }`}
-          >
-            {isAbsent ? '✓ Označeno jako nepřítomen' : '🚫 Označit jako nepřítomen'}
-          </button>
+            >
+              ✅ Pracuje
+            </button>
+            <button
+              onClick={() => setAbsence('vacation')}
+              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+                isVacation
+                  ? 'bg-amber-100 text-amber-700 border-amber-300'
+                  : 'bg-white text-slate-500 hover:bg-amber-50 border-slate-200'
+              }`}
+            >
+              🏖️ Dovolená
+            </button>
+            <button
+              onClick={() => setAbsence('absent')}
+              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+                isAbsentOnly
+                  ? 'bg-red-100 text-red-700 border-red-300'
+                  : 'bg-white text-slate-500 hover:bg-red-50 border-slate-200'
+              }`}
+            >
+              🚫 Nepřítomen
+            </button>
+          </div>
         </div>
 
         {/* Progress */}
