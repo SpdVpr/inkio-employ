@@ -16,6 +16,16 @@ import { getCollectionName } from './environment';
 export type TaskStatus = 'pending' | 'in-progress' | 'completed';
 export type WorkLocation = 'office' | 'homeoffice' | 'unset';
 export type AbsenceType = 'vacation' | 'absent';
+export type AbsenceHalf = 'full' | 'am' | 'pm';
+
+export const absenceDayValue = (half: AbsenceHalf | undefined | null): number =>
+  half === 'am' || half === 'pm' ? 0.5 : 1;
+
+export const formatAbsenceHalfLabel = (half: AbsenceHalf | undefined | null): string => {
+  if (half === 'am') return 'dop.';
+  if (half === 'pm') return 'odp.';
+  return '';
+};
 
 export interface SubTask {
   id: string;
@@ -35,6 +45,7 @@ export interface ScheduleTask {
   subTasks?: SubTask[]; // Nové pole pro sub-úkoly
   isAbsent?: boolean; // Označení, že zaměstnanec není v práci (zachováno pro zpětnou kompatibilitu)
   absenceType?: AbsenceType | null; // Typ nepřítomnosti: 'vacation' (dovolená) nebo 'absent' (nepřítomen z jiného důvodu)
+  absenceHalf?: AbsenceHalf | null; // Rozsah: 'full' (celý den), 'am' (dopoledne), 'pm' (odpoledne). Default 'full'.
   workLocation?: WorkLocation; // Kde zaměstnanec pracuje (kancelář/homeoffice)
   updatedAt: Timestamp;
 }
@@ -270,21 +281,25 @@ export const updateSubTaskStatus = async (
 };
 
 // Set absence type for a specific employee and date.
-// Pass `null` to clear the absence (přítomen).
+// Pass `null` as absenceType to clear the absence (přítomen).
+// `absenceHalf` defaults to 'full' when an absence is set.
 export const setAbsenceType = async (
   employeeName: string,
   taskDate: string,
-  absenceType: AbsenceType | null
+  absenceType: AbsenceType | null,
+  absenceHalf: AbsenceHalf = 'full'
 ): Promise<void> => {
   const taskId = `${employeeName.toLowerCase()}_${taskDate}`;
   const taskRef = doc(db, COLLECTION_NAME, taskId);
 
   const isAbsent = absenceType !== null;
+  const halfToSave: AbsenceHalf | null = isAbsent ? absenceHalf : null;
 
   try {
     await updateDoc(taskRef, {
       isAbsent,
       absenceType: absenceType ?? null,
+      absenceHalf: halfToSave,
       updatedAt: Timestamp.now()
     });
   } catch (error) {
@@ -296,12 +311,13 @@ export const setAbsenceType = async (
       status: 'pending',
       isAbsent,
       absenceType: absenceType ?? null,
+      absenceHalf: halfToSave,
       updatedAt: Timestamp.now()
     });
   }
 };
 
-// Zpětně kompatibilní wrapper - true = nastav 'absent', false = vyčisti
+// Zpětně kompatibilní wrapper - true = nastav 'absent' (celodenní), false = vyčisti
 export const toggleAbsent = async (
   employeeName: string,
   taskDate: string,
@@ -316,6 +332,10 @@ export const resolveAbsenceType = (task: Pick<ScheduleTask, 'isAbsent' | 'absenc
   if (task.isAbsent) return 'absent';
   return null;
 };
+
+// Resolve absence half from a task. Legacy docs without explicit half default to 'full'.
+export const resolveAbsenceHalf = (task: Pick<ScheduleTask, 'absenceHalf'>): AbsenceHalf =>
+  task.absenceHalf ?? 'full';
 
 // Move a single sub-task from one date to another for the same employee
 export const moveSubTask = async (
@@ -648,6 +668,8 @@ export const getMonthlyEmployeeStats = (
         homeofficeDays: Set<string>;
         vacationDates: Set<string>;
         absentDates: Set<string>;
+        vacationDayTotal: number;
+        absentDayTotal: number;
       }> = {};
 
       snapshot.forEach((d) => {
@@ -663,6 +685,8 @@ export const getMonthlyEmployeeStats = (
             homeofficeDays: new Set(),
             vacationDates: new Set(),
             absentDates: new Set(),
+            vacationDayTotal: 0,
+            absentDayTotal: 0,
           };
         }
 
@@ -677,12 +701,15 @@ export const getMonthlyEmployeeStats = (
           employeeMap[task.employeeName].homeofficeDays.add(task.taskDate);
         }
 
-        // Track absence (vacation vs. absent)
+        // Track absence (vacation vs. absent), počítáme půldny jako 0.5
         const absType = resolveAbsenceType(task);
+        const dayValue = absenceDayValue(resolveAbsenceHalf(task));
         if (absType === 'vacation') {
           employeeMap[task.employeeName].vacationDates.add(task.taskDate);
+          employeeMap[task.employeeName].vacationDayTotal += dayValue;
         } else if (absType === 'absent') {
           employeeMap[task.employeeName].absentDates.add(task.taskDate);
+          employeeMap[task.employeeName].absentDayTotal += dayValue;
         }
 
         subTasks.forEach(st => {
@@ -702,8 +729,8 @@ export const getMonthlyEmployeeStats = (
         daysWorked: data.daysWorked.size,
         officeDays: data.officeDays.size,
         homeofficeDays: data.homeofficeDays.size,
-        vacationDays: data.vacationDates.size,
-        absentDays: data.absentDates.size,
+        vacationDays: data.vacationDayTotal,
+        absentDays: data.absentDayTotal,
         vacationDates: Array.from(data.vacationDates).sort(),
         absentDates: Array.from(data.absentDates).sort(),
       }));
@@ -725,6 +752,9 @@ export interface YearlyAbsenceStats {
   // Detail záznamy
   vacationDates: string[];     // všechna data dovolené v roce (YYYY-MM-DD), seřazeno
   absentDates: string[];       // všechna data nepřítomnosti
+  // Hodnota dne (1 = celý, 0.5 = půlden) podle data
+  vacationValueByDate: Record<string, number>;
+  absentValueByDate: Record<string, number>;
   // Měsíční rozpad: index 0 = leden ... 11 = prosinec
   monthlyVacation: number[];   // počet dní dovolené v daném měsíci
   monthlyAbsent: number[];     // počet dní nepřítomnosti v daném měsíci
@@ -750,8 +780,12 @@ export const getYearlyAbsenceStats = (
       const map: Record<string, {
         vacationDates: Set<string>;
         absentDates: Set<string>;
+        // Per-date day-value to support half-days (0.5 vs 1)
+        vacationValueByDate: Record<string, number>;
+        absentValueByDate: Record<string, number>;
         monthlyVacation: number[];
         monthlyAbsent: number[];
+        absentDayTotal: number;
       }> = {};
 
       snapshot.forEach((d) => {
@@ -763,23 +797,31 @@ export const getYearlyAbsenceStats = (
           map[task.employeeName] = {
             vacationDates: new Set(),
             absentDates: new Set(),
+            vacationValueByDate: {},
+            absentValueByDate: {},
             monthlyVacation: Array(12).fill(0),
             monthlyAbsent: Array(12).fill(0),
+            absentDayTotal: 0,
           };
         }
 
         // Extract month from YYYY-MM-DD
         const monthIdx = parseInt(task.taskDate.slice(5, 7), 10) - 1;
+        const dayValue = absenceDayValue(resolveAbsenceHalf(task));
 
-        if (absType === 'vacation' && !map[task.employeeName].vacationDates.has(task.taskDate)) {
-          map[task.employeeName].vacationDates.add(task.taskDate);
+        const bucket = map[task.employeeName];
+        if (absType === 'vacation' && !bucket.vacationDates.has(task.taskDate)) {
+          bucket.vacationDates.add(task.taskDate);
+          bucket.vacationValueByDate[task.taskDate] = dayValue;
           if (monthIdx >= 0 && monthIdx < 12) {
-            map[task.employeeName].monthlyVacation[monthIdx]++;
+            bucket.monthlyVacation[monthIdx] += dayValue;
           }
-        } else if (absType === 'absent' && !map[task.employeeName].absentDates.has(task.taskDate)) {
-          map[task.employeeName].absentDates.add(task.taskDate);
+        } else if (absType === 'absent' && !bucket.absentDates.has(task.taskDate)) {
+          bucket.absentDates.add(task.taskDate);
+          bucket.absentValueByDate[task.taskDate] = dayValue;
+          bucket.absentDayTotal += dayValue;
           if (monthIdx >= 0 && monthIdx < 12) {
-            map[task.employeeName].monthlyAbsent[monthIdx]++;
+            bucket.monthlyAbsent[monthIdx] += dayValue;
           }
         }
       });
@@ -787,17 +829,24 @@ export const getYearlyAbsenceStats = (
       const result: YearlyAbsenceStats[] = Object.entries(map).map(([name, data]) => {
         const vacationDates = Array.from(data.vacationDates).sort();
         const absentDates = Array.from(data.absentDates).sort();
-        const taken = vacationDates.filter(d => d <= todayStr).length;
-        const planned = vacationDates.length - taken;
+        // Half-days count as 0.5
+        const taken = vacationDates
+          .filter(d => d <= todayStr)
+          .reduce((sum, d) => sum + (data.vacationValueByDate[d] ?? 1), 0);
+        const totalVacation = vacationDates
+          .reduce((sum, d) => sum + (data.vacationValueByDate[d] ?? 1), 0);
+        const planned = totalVacation - taken;
 
         return {
           employeeName: name,
           takenVacationDays: taken,
           plannedVacationDays: planned,
-          totalVacationDays: vacationDates.length,
-          absentDays: absentDates.length,
+          totalVacationDays: totalVacation,
+          absentDays: data.absentDayTotal,
           vacationDates,
           absentDates,
+          vacationValueByDate: data.vacationValueByDate,
+          absentValueByDate: data.absentValueByDate,
           monthlyVacation: data.monthlyVacation,
           monthlyAbsent: data.monthlyAbsent,
         };

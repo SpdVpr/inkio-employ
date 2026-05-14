@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock, MoreHorizontal, Building2 } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
-import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes, AbsenceType } from '@/lib/database';
+import { SubTask, generateSubTaskId, calculateProgress, calculateOverallStatus, addSubTaskToEmployee, moveSubTaskCrossEmployee, formatTimeMinutes, AbsenceType, AbsenceHalf } from '@/lib/database';
 import ProgressBar from './ProgressBar';
 import TimeInput from './TimeInput';
 import { showCompletionToast, showTimeWarningToast } from './CompletionToast';
@@ -20,8 +20,9 @@ interface SubTaskEditModalProps {
   initialSubTasks: SubTask[];
   isAbsent: boolean;
   absenceType?: AbsenceType | null;
+  absenceHalf?: AbsenceHalf;
   onAbsenceToggle: () => void;
-  onAbsenceTypeChange?: (type: AbsenceType | null) => void;
+  onAbsenceTypeChange?: (type: AbsenceType | null, half?: AbsenceHalf) => void;
   employees?: Employee[];
 }
 
@@ -34,16 +35,18 @@ export default function SubTaskEditModal({
   initialSubTasks,
   isAbsent,
   absenceType,
+  absenceHalf,
   onAbsenceToggle,
   onAbsenceTypeChange,
   employees = []
 }: SubTaskEditModalProps) {
   const effectiveAbsenceType: AbsenceType | null = absenceType ?? (isAbsent ? 'absent' : null);
+  const effectiveHalf: AbsenceHalf = absenceHalf ?? 'full';
   const isVacation = effectiveAbsenceType === 'vacation';
   const isAbsentOnly = effectiveAbsenceType === 'absent';
-  const setAbsence = (type: AbsenceType | null) => {
+  const setAbsence = (type: AbsenceType | null, half: AbsenceHalf = 'full') => {
     if (onAbsenceTypeChange) {
-      onAbsenceTypeChange(type);
+      onAbsenceTypeChange(type, half);
     } else {
       const willBeAbsent = type !== null;
       if (willBeAbsent !== isAbsent) onAbsenceToggle();
@@ -281,7 +284,7 @@ export default function SubTaskEditModal({
           </button>
         </div>
 
-        {/* Absence selector: Pracuje / Dovolená / Nepřítomen */}
+        {/* Absence selector: Pracuje / Dovolená / Nepřítomen + půldny */}
         <div className="px-4 sm:px-6 py-2 sm:py-3 bg-slate-50/50 border-b border-slate-100">
           <div className="grid grid-cols-3 gap-1.5">
             <button
@@ -295,26 +298,48 @@ export default function SubTaskEditModal({
               ✅ Pracuje
             </button>
             <button
-              onClick={() => setAbsence('vacation')}
+              onClick={() => setAbsence('vacation', isVacation ? effectiveHalf : 'full')}
               className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
                 isVacation
                   ? 'bg-amber-100 text-amber-700 border-amber-300'
                   : 'bg-white text-slate-500 hover:bg-amber-50 border-slate-200'
               }`}
             >
-              🏖️ Dovolená
+              🏖️ Dovolená{isVacation && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}
             </button>
             <button
-              onClick={() => setAbsence('absent')}
+              onClick={() => setAbsence('absent', isAbsentOnly ? effectiveHalf : 'full')}
               className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
                 isAbsentOnly
                   ? 'bg-red-100 text-red-700 border-red-300'
                   : 'bg-white text-slate-500 hover:bg-red-50 border-slate-200'
               }`}
             >
-              🚫 Nepřítomen
+              🚫 Nepřítomen{isAbsentOnly && effectiveHalf !== 'full' ? ` ½ ${effectiveHalf === 'am' ? 'dop' : 'odp'}` : ''}
             </button>
           </div>
+
+          {/* Půldenní sub-přepínač */}
+          {effectiveAbsenceType !== null && (
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mr-1">Rozsah</span>
+              {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => (
+                <button
+                  key={h}
+                  onClick={() => setAbsence(effectiveAbsenceType, h)}
+                  className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors border ${
+                    effectiveHalf === h
+                      ? isVacation
+                        ? 'bg-amber-200 text-amber-800 border-amber-400'
+                        : 'bg-red-200 text-red-800 border-red-400'
+                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {h === 'full' ? 'Celý den' : h === 'am' ? '½ dopoledne' : '½ odpoledne'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Progress */}

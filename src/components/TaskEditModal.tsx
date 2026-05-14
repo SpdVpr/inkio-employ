@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Undo, Redo } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName } from '@/lib/utils';
-import { AbsenceType } from '@/lib/database';
+import { AbsenceType, AbsenceHalf } from '@/lib/database';
 
 interface TaskEditModalProps {
   isOpen: boolean;
@@ -14,8 +14,9 @@ interface TaskEditModalProps {
   initialContent: string;
   isAbsent: boolean;
   absenceType?: AbsenceType | null;
+  absenceHalf?: AbsenceHalf;
   onAbsenceToggle: () => void;
-  onAbsenceTypeChange?: (type: AbsenceType | null) => void;
+  onAbsenceTypeChange?: (type: AbsenceType | null, half?: AbsenceHalf) => void;
 }
 
 export default function TaskEditModal({
@@ -27,15 +28,17 @@ export default function TaskEditModal({
   initialContent,
   isAbsent,
   absenceType,
+  absenceHalf,
   onAbsenceToggle,
   onAbsenceTypeChange
 }: TaskEditModalProps) {
   const effectiveAbsenceType: AbsenceType | null = absenceType ?? (isAbsent ? 'absent' : null);
+  const effectiveHalf: AbsenceHalf = absenceHalf ?? 'full';
   const isVacation = effectiveAbsenceType === 'vacation';
   const isAbsentOnly = effectiveAbsenceType === 'absent';
-  const setAbsence = (type: AbsenceType | null) => {
+  const setAbsence = (type: AbsenceType | null, half: AbsenceHalf = 'full') => {
     if (onAbsenceTypeChange) {
-      onAbsenceTypeChange(type);
+      onAbsenceTypeChange(type, half);
     } else {
       const willBeAbsent = type !== null;
       if (willBeAbsent !== isAbsent) onAbsenceToggle();
@@ -273,38 +276,62 @@ export default function TaskEditModal({
               </span>
             </div>
             
-            {/* Stav: Pracuje / Dovolená / Nepřítomen */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setAbsence(null)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
-                  effectiveAbsenceType === null
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                    : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300'
-                }`}
-              >
-                ✅ Pracuje
-              </button>
-              <button
-                onClick={() => setAbsence('vacation')}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
-                  isVacation
-                    ? 'bg-amber-100 text-amber-700 border-amber-300'
-                    : 'bg-white text-gray-500 hover:bg-amber-50 border-gray-300'
-                }`}
-              >
-                🏖️ Dovolená
-              </button>
-              <button
-                onClick={() => setAbsence('absent')}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
-                  isAbsentOnly
-                    ? 'bg-red-100 text-red-700 border-red-300'
-                    : 'bg-white text-gray-500 hover:bg-red-50 border-gray-300'
-                }`}
-              >
-                🚫 Nepřítomen
-              </button>
+            {/* Stav: Pracuje / Dovolená / Nepřítomen + půldny */}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setAbsence(null)}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                    effectiveAbsenceType === null
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                      : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300'
+                  }`}
+                >
+                  ✅ Pracuje
+                </button>
+                <button
+                  onClick={() => setAbsence('vacation', isVacation ? effectiveHalf : 'full')}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                    isVacation
+                      ? 'bg-amber-100 text-amber-700 border-amber-300'
+                      : 'bg-white text-gray-500 hover:bg-amber-50 border-gray-300'
+                  }`}
+                >
+                  🏖️ Dovolená
+                </button>
+                <button
+                  onClick={() => setAbsence('absent', isAbsentOnly ? effectiveHalf : 'full')}
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                    isAbsentOnly
+                      ? 'bg-red-100 text-red-700 border-red-300'
+                      : 'bg-white text-gray-500 hover:bg-red-50 border-gray-300'
+                  }`}
+                >
+                  🚫 Nepřítomen
+                </button>
+              </div>
+
+              {/* Půldenní sub-přepínač — viditelný jen když je nějaká absence aktivní */}
+              {effectiveAbsenceType !== null && (
+                <div className="flex items-center gap-1 text-[10px]">
+                  <span className="text-gray-400 mr-1">Rozsah:</span>
+                  {(['full', 'am', 'pm'] as AbsenceHalf[]).map(h => (
+                    <button
+                      key={h}
+                      onClick={() => setAbsence(effectiveAbsenceType, h)}
+                      className={`px-2 py-0.5 rounded-md font-semibold transition-colors border ${
+                        effectiveHalf === h
+                          ? isVacation
+                            ? 'bg-amber-200 text-amber-800 border-amber-400'
+                            : 'bg-red-200 text-red-800 border-red-400'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {h === 'full' ? 'Celý' : h === 'am' ? '½ dop.' : '½ odp.'}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

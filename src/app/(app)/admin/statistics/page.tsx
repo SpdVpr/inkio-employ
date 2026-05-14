@@ -93,6 +93,9 @@ export default function AdminStatisticsPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, []);
 
+  // Format day count: integer → "5", half → "2,5"
+  const formatDays = (n: number): string => Number.isInteger(n) ? `${n}` : n.toFixed(1).replace('.', ',');
+
   // Build a per-employee absence overview combining yearly stats with allowance
   const absenceOverview = useMemo(() => {
     // Build a complete list — include every employee even if no absence yet
@@ -125,6 +128,7 @@ export default function AdminStatisticsPage() {
         thisMonthVacation,
         thisMonthAbsent,
         vacationDatesThisMonth,
+        vacationValueByDate: stats?.vacationValueByDate ?? {},
         allVacationDates: stats?.vacationDates ?? [],
         monthlyVacation: stats?.monthlyVacation ?? Array(12).fill(0),
         monthlyAbsent: stats?.monthlyAbsent ?? Array(12).fill(0),
@@ -134,10 +138,14 @@ export default function AdminStatisticsPage() {
 
   // Upcoming/planned vacations — flatten across employees, sort by date
   const upcomingVacations = useMemo(() => {
-    const rows: { employeeName: string; date: string }[] = [];
+    const rows: { employeeName: string; date: string; value: number }[] = [];
     yearlyAbsence.forEach(stats => {
       stats.vacationDates.forEach(d => {
-        if (d > todayStr) rows.push({ employeeName: stats.employeeName, date: d });
+        if (d > todayStr) rows.push({
+          employeeName: stats.employeeName,
+          date: d,
+          value: stats.vacationValueByDate[d] ?? 1,
+        });
       });
     });
     rows.sort((a, b) => a.date.localeCompare(b.date));
@@ -554,7 +562,7 @@ export default function AdminStatisticsPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Dovolená — měsíc</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalVacationThisMonth} d</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatDays(totalVacationThisMonth)} d</p>
                 </div>
               </div>
             </div>
@@ -565,7 +573,7 @@ export default function AdminStatisticsPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Nepřítomen — měsíc</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalAbsentThisMonth} d</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatDays(totalAbsentThisMonth)} d</p>
                 </div>
               </div>
             </div>
@@ -576,7 +584,7 @@ export default function AdminStatisticsPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Plán dovolených</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalPlannedVacation} d</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatDays(totalPlannedVacation)} d</p>
                 </div>
               </div>
             </div>
@@ -627,26 +635,30 @@ export default function AdminStatisticsPage() {
                             </div>
                           </td>
                           <td className="py-2.5 px-3 text-right" style={{ color: 'var(--text-secondary)' }}>{row.allowance} d</td>
-                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#10b981' }}>{row.taken}</td>
-                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#8b5cf6' }}>{row.planned}</td>
+                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#10b981' }}>{formatDays(row.taken)}</td>
+                          <td className="py-2.5 px-3 text-right font-semibold" style={{ color: '#8b5cf6' }}>{formatDays(row.planned)}</td>
                           <td className="py-2.5 px-3 text-right font-bold" style={{ color: overLimit ? '#ef4444' : 'var(--text-primary)' }}>
-                            {row.remaining}
+                            {formatDays(row.remaining)}
                             {overLimit && <span className="text-[10px] ml-1">⚠</span>}
                           </td>
                           <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#f59e0b' }}>
-                            {row.thisMonthVacation || '—'}
+                            {row.thisMonthVacation > 0 ? formatDays(row.thisMonthVacation) : '—'}
                           </td>
                           <td className="py-2.5 px-3 text-right font-medium" style={{ color: '#ef4444' }}>
-                            {row.thisMonthAbsent || '—'}
+                            {row.thisMonthAbsent > 0 ? formatDays(row.thisMonthAbsent) : '—'}
                           </td>
                           <td className="py-2.5 px-3">
                             {row.vacationDatesThisMonth.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {row.vacationDatesThisMonth.map(d => (
-                                  <span key={d} className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">
-                                    {formatShortDate(d)}
-                                  </span>
-                                ))}
+                                {row.vacationDatesThisMonth.map(d => {
+                                  const val = row.vacationValueByDate[d] ?? 1;
+                                  const isHalf = val < 1;
+                                  return (
+                                    <span key={d} className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">
+                                      {formatShortDate(d)}{isHalf ? ' ½' : ''}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             ) : (
                               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
@@ -680,7 +692,7 @@ export default function AdminStatisticsPage() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{row.employeeName}</span>
                         <span className="text-[10px] font-bold" style={{ color: pct >= 100 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981' }}>
-                          {row.total}/{row.allowance} ({pct}%)
+                          {formatDays(row.total)}/{row.allowance} ({pct}%)
                         </span>
                       </div>
                       <div className="w-full h-2 rounded-full overflow-hidden relative" style={{ background: 'var(--surface-hover)' }}>
@@ -708,17 +720,20 @@ export default function AdminStatisticsPage() {
                 <CalendarDays size={16} style={{ color: '#8b5cf6' }} /> Plánované dovolené
               </h3>
               <div className="flex flex-wrap gap-1.5">
-                {upcomingVacations.map(({ employeeName, date }) => (
-                  <span
-                    key={`${employeeName}_${date}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                    style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
-                  >
-                    <span>🏖️</span>
-                    <strong>{employeeName}</strong>
-                    <span>{formatShortDate(date)}</span>
-                  </span>
-                ))}
+                {upcomingVacations.map(({ employeeName, date, value }) => {
+                  const isHalf = value < 1;
+                  return (
+                    <span
+                      key={`${employeeName}_${date}`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                      style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}
+                    >
+                      <span>🏖️</span>
+                      <strong>{employeeName}</strong>
+                      <span>{formatShortDate(date)}{isHalf ? ' ½' : ''}</span>
+                    </span>
+                  );
+                })}
               </div>
               {upcomingVacations.length >= 50 && (
                 <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
