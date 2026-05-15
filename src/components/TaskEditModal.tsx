@@ -281,7 +281,7 @@ export default function TaskEditModal({
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setAbsence(null)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs border ${
                   effectiveAbsenceType === null
                     ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
                     : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300'
@@ -294,7 +294,7 @@ export default function TaskEditModal({
                 currentType={effectiveAbsenceType}
                 currentHalf={effectiveHalf}
                 onSelect={(t, h) => setAbsence(t, h)}
-                buttonClassName={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                buttonClassName={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs border ${
                   isVacation
                     ? 'bg-amber-100 text-amber-700 border-amber-300'
                     : 'bg-white text-gray-500 hover:bg-amber-50 border-gray-300'
@@ -307,7 +307,7 @@ export default function TaskEditModal({
                 currentType={effectiveAbsenceType}
                 currentHalf={effectiveHalf}
                 onSelect={(t, h) => setAbsence(t, h)}
-                buttonClassName={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs transition-colors border ${
+                buttonClassName={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-medium text-[11px] sm:text-xs border ${
                   isAbsentOnly
                     ? 'bg-red-100 text-red-700 border-red-300'
                     : 'bg-white text-gray-500 hover:bg-red-50 border-gray-300'

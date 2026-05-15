@@ -290,7 +290,7 @@ export default function SubTaskEditModal({
           <div className="flex items-center justify-center gap-1.5 flex-wrap">
             <button
               onClick={() => setAbsence(null)}
-              className={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+              className={`px-3 py-2 rounded-lg font-medium text-xs border ${
                 effectiveAbsenceType === null
                   ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
                   : 'bg-white text-slate-500 hover:bg-emerald-50 border-slate-200'
@@ -303,7 +303,7 @@ export default function SubTaskEditModal({
               currentType={effectiveAbsenceType}
               currentHalf={effectiveHalf}
               onSelect={(t, h) => setAbsence(t, h)}
-              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs border ${
                 isVacation
                   ? 'bg-amber-100 text-amber-700 border-amber-300'
                   : 'bg-white text-slate-500 hover:bg-amber-50 border-slate-200'
@@ -315,7 +315,7 @@ export default function SubTaskEditModal({
               currentType={effectiveAbsenceType}
               currentHalf={effectiveHalf}
               onSelect={(t, h) => setAbsence(t, h)}
-              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs transition-all border ${
+              buttonClassName={`px-3 py-2 rounded-lg font-medium text-xs border ${
                 isAbsentOnly
                   ? 'bg-red-100 text-red-700 border-red-300'
                   : 'bg-white text-slate-500 hover:bg-red-50 border-slate-200'

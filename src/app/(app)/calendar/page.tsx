@@ -804,13 +804,16 @@ export default function DashboardPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th className="employee-name-col sm:text-left text-center text-[10px] font-bold uppercase tracking-widest border-r align-middle overflow-hidden"
-                  style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border-light)', position: 'sticky', left: 0, zIndex: 12, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
+                  style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderColor: 'var(--border-light)', position: 'sticky', left: 0, top: 0, zIndex: 13, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}>
                   <span className="hidden sm:inline">Zaměstnanec</span>
                   <span className="sm:hidden text-[14px]">👤</span>
                 </th>
                 {weekData.days.map((date) => (
                   <th key={formatDate(date)} className={getHeaderCellClasses(date)}
                     style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 11,
                       borderColor: 'var(--border-light)',
                       ...(isCurrentDay(date) ? { background: '#1765F2', color: '#ffffff' } : {})
                     }}>
