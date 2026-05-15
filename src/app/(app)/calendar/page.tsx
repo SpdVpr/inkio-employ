@@ -797,9 +797,16 @@ export default function DashboardPage() {
 
       {/* ===== COMPANY VIEW (original table) ===== */}
       {viewMode === 'company' && (
-        <div className="rounded-xl shadow-sm overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div
+          className="rounded-xl shadow-sm relative"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            maxHeight: 'calc(100vh - 200px)',
+            overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           <table className="w-full min-w-[1720px]">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -901,7 +908,6 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
-          </div>
         </div>
       )}
 
