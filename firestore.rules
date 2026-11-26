@@ -33,6 +33,14 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Personal dashboard notes
+    match /personal_notes_by_user/{userId} {
+      allow get, create, update: if request.auth != null && request.auth.uid == userId;
+    }
+    match /personal_notes_by_user_dev/{userId} {
+      allow get, create, update: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Chats
     match /chats/{chatId} {
       allow read: if true;

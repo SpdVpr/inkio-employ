@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  serverTimestamp,
   getDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -1040,50 +1041,35 @@ export const subscribeToUnfilledTimeTasks = (
 // PERSONAL NOTES
 // ======================================
 
-const NOTES_COLLECTION = getCollectionName('personal_notes');
-
-export interface PersonalNote {
-  employeeName: string;
-  content: string;
-  updatedAt: Timestamp;
-}
+const NOTES_COLLECTION = getCollectionName('personal_notes_by_user');
 
 export const subscribeToPersonalNotes = (
-  employeeName: string,
-  callback: (content: string) => void
+  userId: string,
+  callback: (content: string) => void,
+  onError: () => void,
 ) => {
-  const docRef = doc(db, NOTES_COLLECTION, employeeName);
+  const docRef = doc(db, NOTES_COLLECTION, userId);
 
   return onSnapshot(
     docRef,
+    { includeMetadataChanges: true },
     (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as PersonalNote;
-        callback(data.content || '');
-      } else {
-        callback('');
-      }
+      if (snapshot.metadata.hasPendingWrites || (!snapshot.exists() && snapshot.metadata.fromCache)) return;
+
+      const content = snapshot.data()?.content;
+      callback(typeof content === 'string' ? content : '');
     },
     (error) => {
       console.error('Error in subscribeToPersonalNotes:', error);
-      callback(''); // Fallback pro případ chyby
+      onError();
     }
   );
 };
 
-export const savePersonalNotes = async (
-  employeeName: string,
+export const savePersonalNotes = (
+  userId: string,
   content: string
-): Promise<void> => {
-  try {
-    const docRef = doc(db, NOTES_COLLECTION, employeeName);
-    await setDoc(docRef, {
-      employeeName,
-      content,
-      updatedAt: Timestamp.now(),
-    });
-  } catch (error) {
-    console.error('Error saving personal notes:', error);
-    throw error;
-  }
-};
+): Promise<void> => setDoc(doc(db, NOTES_COLLECTION, userId), {
+  content,
+  updatedAt: serverTimestamp(),
+});

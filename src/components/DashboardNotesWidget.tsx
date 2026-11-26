@@ -1,50 +1,98 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
 import { NotepadText, Save, Check } from 'lucide-react';
 import { subscribeToPersonalNotes, savePersonalNotes } from '@/lib/database';
+import { getEnvironmentName, getFirebaseProjectId } from '@/lib/environment';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardNotesWidget() {
-  const { userProfile } = useAuth();
-  const myName = userProfile?.displayName || '';
-  
-  const [notes, setNotes] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { user } = useAuth();
+  return user ? <PersonalNotes key={user.uid} userId={user.uid} /> : null;
+}
+
+type SaveStatus = 'loading' | 'idle' | 'saving' | 'saved' | 'load-error' | 'save-error';
+
+function PersonalNotes({ userId }: { userId: string }) {
+  const draftKey = `inkio-note-draft:${getFirebaseProjectId()}:${getEnvironmentName()}:${userId}`;
+  const [restoredDraft] = useState(() => {
+    try {
+      return localStorage.getItem(draftKey);
+    } catch {
+      return null;
+    }
+  });
+  const [notes, setNotes] = useState(restoredDraft ?? '');
+  const [status, setStatus] = useState<SaveStatus>(restoredDraft === null ? 'loading' : 'saving');
+  const draftRef = useRef(restoredDraft === null ? null : { content: restoredDraft, saving: false });
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(false);
+
+  const flushDraft = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    const draft = draftRef.current;
+    if (!draft || draft.saving) return;
+
+    draft.saving = true;
+    if (mountedRef.current) setStatus('saving');
+
+    void savePersonalNotes(userId, draft.content).then(() => {
+      if (draftRef.current !== draft) return;
+      draftRef.current = null;
+      try {
+        if (localStorage.getItem(draftKey) === draft.content) localStorage.removeItem(draftKey);
+      } catch {
+        // Cloud storage is available even when browser storage is disabled.
+      }
+      if (mountedRef.current) setStatus('saved');
+    }, (error) => {
+      draft.saving = false;
+      console.error('Failed to save notes:', error);
+      if (mountedRef.current && draftRef.current === draft) setStatus('save-error');
+    });
+  }, [draftKey, userId]);
 
   useEffect(() => {
-    if (!myName) return;
-    const unsubscribe = subscribeToPersonalNotes(myName, (content) => {
+    mountedRef.current = true;
+    const unsubscribe = subscribeToPersonalNotes(userId, (content) => {
+      if (draftRef.current) return;
       setNotes(content);
+      setStatus(current => current === 'loading' ? 'idle' : current);
+    }, () => {
+      setStatus(current => current === 'loading' ? 'load-error' : current);
     });
-    return () => unsubscribe();
-  }, [myName]);
 
-  const handleSave = useCallback(async (contentToSave: string) => {
-    if (!myName) return;
-    setIsSaving(true);
+    if (draftRef.current) timeoutRef.current = setTimeout(flushDraft, 0);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      mountedRef.current = false;
+      unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      flushDraft();
+    };
+  }, [flushDraft, userId]);
+
+  const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const content = event.target.value;
+    draftRef.current = { content, saving: false };
+    setNotes(content);
+    setStatus('saving');
     try {
-      await savePersonalNotes(myName, contentToSave);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (error) {
-      console.error('Failed to save notes:', error);
-    } finally {
-      setIsSaving(false);
+      localStorage.setItem(draftKey, content);
+    } catch {
+      // Continue to save directly to Firestore.
     }
-  }, [myName]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setNotes(newContent);
-    
-    // Auto-save delay
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      handleSave(newContent);
-    }, 1000);
+    if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(flushDraft, 1000);
   };
 
   return (
@@ -54,18 +102,27 @@ export default function DashboardNotesWidget() {
           <NotepadText size={16} className="text-yellow-600 dark:text-yellow-500" />
           Moje poznámky
         </h2>
-        <div className="text-xs font-semibold px-2 py-1 flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
-          {isSaving ? (
+        <div aria-live="polite" className="text-xs font-semibold px-2 py-1 flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
+          {status === 'loading' && <span>Načítám...</span>}
+          {status === 'load-error' && <span>Poznámky se nepodařilo načíst</span>}
+          {status === 'saving' && (
             <span className="flex items-center gap-1 opacity-70"><Save size={12} className="animate-pulse" /> Ukládám...</span>
-          ) : saveSuccess ? (
+          )}
+          {status === 'saved' && (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500"><Check size={12} /> Uloženo</span>
-          ) : null}
+          )}
+          {status === 'save-error' && (
+            <button type="button" onClick={flushDraft} className="underline">Uložení selhalo. Zkusit znovu</button>
+          )}
         </div>
       </div>
       <div className="dashboard-widget-content flex-1 p-0 relative">
         <textarea
           value={notes}
           onChange={handleChange}
+          onBlur={flushDraft}
+          disabled={status === 'loading'}
+          aria-label="Moje poznámky"
           placeholder="Napiš si rychlou poznámku k dnešku..."
           className="w-full h-full min-h-[250px] resize-none outline-none bg-transparent p-5 text-sm"
           style={{ color: 'var(--text-primary)' }}

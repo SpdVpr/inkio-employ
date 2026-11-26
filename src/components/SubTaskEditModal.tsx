@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useId, useRef, type CSSProperties, type UIEvent } from 'react';
 import { X, Plus, Trash2, GripVertical, CornerUpRight, Copy, CopyPlus, CalendarDays, Clock, MoreHorizontal, Building2 } from 'lucide-react';
 import { Employee, formatDateDisplay, formatDayName, getSubTaskIcon, getNextStatus, formatDate } from '@/lib/utils';
 import { addDays } from 'date-fns';
@@ -25,6 +25,20 @@ interface SubTaskEditModalProps {
   onAbsenceToggle: () => void;
   onAbsenceTypeChange?: (type: AbsenceType | null, half?: AbsenceHalf) => void;
   employees?: Employee[];
+}
+
+function getCompanyPickerPosition(rect: DOMRect): CSSProperties {
+  const gap = 4;
+  const viewportPadding = 8;
+  const spaceBelow = window.innerHeight - rect.bottom - gap - viewportPadding;
+  const spaceAbove = rect.top - gap - viewportPadding;
+  const opensDown = spaceBelow >= 112 || spaceBelow >= spaceAbove;
+
+  return {
+    ...(opensDown ? { top: rect.bottom + gap } : { bottom: window.innerHeight - rect.top + gap }),
+    right: `clamp(0.5rem, ${window.innerWidth - rect.right}px, calc(100% - 12.5rem))`,
+    maxHeight: Math.min(240, opensDown ? spaceBelow : spaceAbove),
+  };
 }
 
 export default function SubTaskEditModal({
@@ -62,10 +76,17 @@ export default function SubTaskEditModal({
   const [moveToDateValue, setMoveToDateValue] = useState<string>('');
   const [actionsMenuTaskId, setActionsMenuTaskId] = useState<string | null>(null);
   const [actionsMenuPosition, setActionsMenuPosition] = useState<{ top: number; right: number } | null>(null);
-  const [companyPickerTaskId, setCompanyPickerTaskId] = useState<string | null>(null);
+  const [companyPicker, setCompanyPicker] = useState<{
+    taskId: string;
+    anchor: HTMLButtonElement;
+    position: CSSProperties;
+  } | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const moveMenuRef = useRef<HTMLDivElement>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const companyPickerRef = useRef<HTMLDivElement>(null);
+  const companyPickerId = useId();
+  const companyPickerAnchor = companyPicker?.anchor;
 
   // Subscribe to companies
   useEffect(() => {
@@ -91,18 +112,68 @@ export default function SubTaskEditModal({
   }, []);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    if (!companyPickerAnchor) return;
+
+    companyPickerRef.current?.focus({ preventScroll: true });
+    const closePicker = () => setCompanyPicker(null);
+    const handleClickOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!companyPickerRef.current?.contains(target) && !companyPickerAnchor.contains(target)) {
+        closePicker();
+      }
     };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
+    document.addEventListener('pointerdown', handleClickOutside);
+    window.addEventListener('resize', closePicker);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      window.removeEventListener('resize', closePicker);
+    };
+  }, [companyPickerAnchor]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (companyPickerAnchor) {
+        setCompanyPicker(null);
+        companyPickerAnchor.focus({ preventScroll: true });
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [companyPickerAnchor, isOpen, onClose]);
+
+  const toggleCompanyPicker = (taskId: string, anchor: HTMLButtonElement) => {
+    if (companyPicker?.taskId === taskId) {
+      setCompanyPicker(null);
+      return;
+    }
+
+    setActionsMenuTaskId(null);
+    setMovingTaskId(null);
+    setCompanyPicker({
+      taskId,
+      anchor,
+      position: getCompanyPickerPosition(anchor.getBoundingClientRect()),
+    });
+  };
+
+  const handleTaskListScroll = (event: UIEvent<HTMLDivElement>) => {
+    if (!companyPicker) return;
+    const viewport = event.currentTarget.getBoundingClientRect();
+    const anchor = companyPicker.anchor.getBoundingClientRect();
+    if (anchor.bottom <= viewport.top || anchor.top >= viewport.bottom) {
+      setCompanyPicker(null);
+    } else {
+      setCompanyPicker({ ...companyPicker, position: getCompanyPickerPosition(anchor) });
+    }
+  };
 
   const handleSave = () => {
     try {
@@ -131,6 +202,7 @@ export default function SubTaskEditModal({
       }
 
       onSave(updatedSubTasks);
+      setCompanyPicker(null);
       onClose();
     } catch (error) {
       console.error('Error preparing sub-tasks for save:', error);
@@ -140,6 +212,7 @@ export default function SubTaskEditModal({
 
   const handleCancel = () => {
     setSubTasks(initialSubTasks);
+    setCompanyPicker(null);
     onClose();
   };
 
@@ -262,6 +335,14 @@ export default function SubTaskEditModal({
   const progress = calculateProgress(subTasks);
   const completedCount = subTasks.filter(t => t.status === 'completed').length;
   const totalTimeMinutes = subTasks.reduce((sum, t) => sum + (t.timeMinutes || 0), 0);
+  const companyPickerTask = companyPicker && subTasks.find(task => task.id === companyPicker.taskId);
+
+  const selectCompany = (companyId?: string) => {
+    if (!companyPicker) return;
+    updateSubTask(companyPicker.taskId, { companyId });
+    setCompanyPicker(null);
+    companyPicker.anchor.focus({ preventScroll: true });
+  };
 
   if (!isOpen) return null;
 
@@ -342,7 +423,7 @@ export default function SubTaskEditModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4" onScroll={handleTaskListScroll}>
           <div className="space-y-1.5">
             {subTasks.map((task, index) => (
               <div
@@ -398,62 +479,34 @@ export default function SubTaskEditModal({
                   </div>
 
                   {/* Company tag */}
-                  <div className="flex-shrink-0 relative" onClick={(e) => e.stopPropagation()}>
-                    {task.companyId ? (
-                      <button
-                        onClick={() => setCompanyPickerTaskId(companyPickerTaskId === task.id ? null : task.id)}
-                        className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all hover:opacity-80 shadow-sm"
-                        style={{
-                          background: (companies.find(c => c.id === task.companyId)?.color || '#64748b') + '20',
-                          color: companies.find(c => c.id === task.companyId)?.color || '#64748b',
-                          border: `1.5px solid ${(companies.find(c => c.id === task.companyId)?.color || '#64748b')}50`
-                        }}
-                      >
-                        <span>{companies.find(c => c.id === task.companyId)?.icon || '🏢'}</span>
-                        <span className="max-w-[60px] sm:max-w-[100px] truncate">{companies.find(c => c.id === task.companyId)?.name || 'Firma'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setCompanyPickerTaskId(companyPickerTaskId === task.id ? null : task.id)}
-                        className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-medium text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-2 border-dashed border-slate-200 hover:border-blue-300 transition-all"
-                        title="Přidat firmu"
-                      >
-                        <Building2 size={11} />
-                        <span className="hidden sm:inline">Firma</span>
-                      </button>
-                    )}
-
-                    {/* Company picker dropdown */}
-                    {companyPickerTaskId === task.id && (
-                      <div className="absolute bottom-full right-0 mb-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] py-1 max-h-60 overflow-y-auto animate-fade-in">
-                        <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                          Vyberte firmu
-                        </div>
-                        {task.companyId && (
-                          <button
-                            onClick={() => { updateSubTask(task.id, { companyId: undefined }); setCompanyPickerTaskId(null); }}
-                            className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
-                          >
-                            ✕ Odebrat firmu
-                          </button>
-                        )}
-                        {companies.map(company => (
-                          <button
-                            key={company.id}
-                            onClick={() => { updateSubTask(task.id, { companyId: company.id }); setCompanyPickerTaskId(null); }}
-                            className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 transition-colors ${task.companyId === company.id ? 'bg-blue-50 font-semibold' : 'text-slate-600'}`}
-                          >
-                            <span>{company.icon}</span>
-                            <span style={{ color: company.color }}>{company.name}</span>
-                          </button>
-                        ))}
-                        {companies.length === 0 && (
-                          <div className="px-3 py-3 text-xs text-slate-400 text-center">
-                            Žádné firmy.<br />Přidejte je v Adminu.
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={(e) => toggleCompanyPicker(task.id, e.currentTarget)}
+                      aria-expanded={companyPicker?.taskId === task.id}
+                      aria-controls={companyPicker?.taskId === task.id ? companyPickerId : undefined}
+                      title={task.companyId ? undefined : 'Přidat firmu'}
+                      className={`inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs transition-all ${task.companyId
+                        ? 'sm:gap-1.5 font-bold hover:opacity-80 shadow-sm'
+                        : 'font-medium text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-2 border-dashed border-slate-200 hover:border-blue-300'}`}
+                      style={task.companyId ? {
+                        background: (companies.find(c => c.id === task.companyId)?.color || '#64748b') + '20',
+                        color: companies.find(c => c.id === task.companyId)?.color || '#64748b',
+                        border: `1.5px solid ${(companies.find(c => c.id === task.companyId)?.color || '#64748b')}50`,
+                      } : undefined}
+                    >
+                      {task.companyId ? (
+                        <>
+                          <span>{companies.find(c => c.id === task.companyId)?.icon || '🏢'}</span>
+                          <span className="max-w-[60px] sm:max-w-[100px] truncate">{companies.find(c => c.id === task.companyId)?.name || 'Firma'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Building2 size={11} />
+                          <span className="hidden sm:inline">Firma</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* Actions menu (⋯) */}
@@ -618,6 +671,46 @@ export default function SubTaskEditModal({
           </button>
         </div>
       </div>
+
+      {companyPicker && companyPickerTask && (
+        <div
+          ref={companyPickerRef}
+          id={companyPickerId}
+          tabIndex={-1}
+          role="group"
+          aria-label="Vyberte firmu"
+          style={companyPicker.position}
+          className="absolute z-[60] w-48 max-w-[calc(100%-1rem)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white py-1 shadow-xl outline-none"
+        >
+          <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+            Vyberte firmu
+          </div>
+          {companyPickerTask.companyId && (
+            <button
+              onClick={() => selectCompany()}
+              className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
+            >
+              ✕ Odebrat firmu
+            </button>
+          )}
+          {companies.map(company => (
+            <button
+              key={company.id}
+              onClick={() => selectCompany(company.id)}
+              aria-pressed={companyPickerTask.companyId === company.id}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 transition-colors ${companyPickerTask.companyId === company.id ? 'bg-blue-50 font-semibold' : 'text-slate-600'}`}
+            >
+              <span>{company.icon}</span>
+              <span style={{ color: company.color }}>{company.name}</span>
+            </button>
+          ))}
+          {companies.length === 0 && (
+            <div className="px-3 py-3 text-xs text-slate-400 text-center">
+              Žádné firmy.<br />Přidejte je v Adminu.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
